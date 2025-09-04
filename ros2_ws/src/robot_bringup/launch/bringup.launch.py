@@ -15,6 +15,7 @@ def generate_launch_description():
         DeclareLaunchArgument('port', default_value='/dev/ttyUSB0'),
         DeclareLaunchArgument('baud', default_value='115200'),
         DeclareLaunchArgument('joy_topic', default_value='/joy'),
+        DeclareLaunchArgument('deadzone', default_value='0.12'),
 
         # พรีเซ็ตตามฮาร์ดแวร์ของคุณ (ล้อ 5", 37 rpm, พื้นดิน)
         DeclareLaunchArgument('max_linear', default_value='1'),  # m/s
