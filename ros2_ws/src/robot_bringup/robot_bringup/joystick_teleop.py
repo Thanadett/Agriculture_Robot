@@ -147,8 +147,9 @@ class JoystickTeleop(Node):
             # Linear: กระโดดไป ±max_linear ทันทีตามทิศของ stick (ถ้า stick = 0 → 0)
             self.v_target = (math.copysign(self.max_lin, lin_in)
                              if abs(lin_in) > 0.0 else 0.0)
-            # Angular: ใช้ค่าปกติจากสติ๊ก
-            self.w_target = w_norm
+            # Angular: ใ
+            self.w_target = (math.copysign(self.max_ang, ang_in)
+                             if abs(ang_in) > 0.0 else 0.0)
         else:
             self.v_target = v_norm
             self.w_target = w_norm
