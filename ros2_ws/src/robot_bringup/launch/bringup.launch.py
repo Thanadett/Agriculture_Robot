@@ -18,7 +18,7 @@ def generate_launch_description():
         DeclareLaunchArgument('deadzone', default_value='0.12'),
 
         # พรีเซ็ตตามฮาร์ดแวร์ของคุณ (ล้อ 5", 37 rpm, พื้นดิน)
-        DeclareLaunchArgument('max_linear', default_value='1.0'),  # m/s
+        DeclareLaunchArgument('max_linear', default_value='1.0'),   # m/s
         DeclareLaunchArgument('max_angular', default_value='10.0'),  # rad/s
 
         # Joy driver + autorepeat กันคำสั่งวูบ
@@ -33,7 +33,6 @@ def generate_launch_description():
             }],
         ),
 
-
         # Joystick teleop (two-stick; RB linear instant; B e-stop)
         Node(
             package='robot_bringup',
@@ -46,8 +45,9 @@ def generate_launch_description():
                 'max_angular': max_angular,
                 'deadzone': 0.12,
                 'expo_linear': 0.30,
-                'expo_angular': 2.0,
-                'ramp_rate': 3.0,
+                'expo_angular': 0.35,
+                'ramp_rate_linear': 3.0,   # เดินหน้า/ถอย
+                'ramp_rate_angular': 8.0,  # เลี้ยว
                 'joy_timeout_ms': 2000,
                 'btn_turbo': 5,
                 'btn_emergency_stop': 1,
