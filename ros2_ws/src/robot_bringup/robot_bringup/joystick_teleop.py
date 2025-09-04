@@ -41,20 +41,18 @@ class JoystickTeleop(Node):
         self.declare_parameter('invert_right_x', 1.0)   # 1 หรือ -1
 
         # buttons
-        # RB = instant max (linear only)
-        self.declare_parameter('btn_turbo', 5)
-        self.declare_parameter('btn_emergency_stop', 1)  # B = emergency stop
+        self.declare_parameter('btn_turbo', 5)             # RB = instant max
+        self.declare_parameter('btn_emergency_stop', 1)    # B = emergency stop
 
         # tuning (set defaults to your hardware/terrain)
-        # m/s  (≈ 5" wheel @ 37 rpm)
-        self.declare_parameter('max_linear', 1.0)
-        # rad/s (ฐาน ~0.3–0.35 m บนดิน)
-        self.declare_parameter('max_angular', 10.0)
+        self.declare_parameter('max_linear', 1.0)       # m/s
+        self.declare_parameter('max_angular', 10.0)     # rad/s
         self.declare_parameter('deadzone', 0.12)
         self.declare_parameter('expo_linear', 0.30)
-        self.declare_parameter('expo_angular', 2.0)
-        self.declare_parameter('ramp_rate', 3.0)       # [1/s]
-        # ควรเปิด joy_node autorepeat 50 Hz
+        self.declare_parameter('expo_angular', 0.35)
+
+        self.declare_parameter('ramp_rate_linear', 3.0)    # [1/s]
+        self.declare_parameter('ramp_rate_angular', 8.0)   # [1/s]
         self.declare_parameter('joy_timeout_ms', 2000)
 
         # ---------- Read params ----------
@@ -75,7 +73,8 @@ class JoystickTeleop(Node):
         self.deadzone = float(p('deadzone').double_value)
         self.exp_lin = float(p('expo_linear').double_value)
         self.exp_ang = float(p('expo_angular').double_value)
-        self.ramp = float(p('ramp_rate').double_value)
+        self.ramp_lin = float(p('ramp_rate_linear').double_value)
+        self.ramp_ang = float(p('ramp_rate_angular').double_value)
         self.joy_to_ms = int(p('joy_timeout_ms').integer_value)
 
         # ---------- Pub/Sub ----------
@@ -144,10 +143,8 @@ class JoystickTeleop(Node):
         # RB = instant max (linear only)
         self.turbo_active = bool(self._btn(msg, self.btn_turbo))
         if self.turbo_active:
-            # Linear: กระโดดไป ±max_linear ทันทีตามทิศของ stick (ถ้า stick = 0 → 0)
             self.v_target = (math.copysign(self.max_lin, lin_in)
                              if abs(lin_in) > 0.0 else 0.0)
-            # Angular: ใ
             self.w_target = (math.copysign(self.max_ang, ang_in)
                              if abs(ang_in) > 0.0 else 0.0)
         else:
@@ -166,18 +163,17 @@ class JoystickTeleop(Node):
             self.w_target = 0.0
             self.turbo_active = False
 
-        # ถ้า turbo กดอยู่ → อัปเดต linear แบบทันที แต่ยัง ramp angular ตามปกติ
         if self.turbo_active:
             self.cur_v = self.v_target  # linear instant
             # angular ramp
-            max_step = max(1e-6, self.ramp * dt)
-            dw = max(-max_step, min(max_step, self.w_target - self.cur_w))
+            max_step_w = max(1e-6, self.ramp_ang * dt)
+            dw = max(-max_step_w, min(max_step_w, self.w_target - self.cur_w))
             self.cur_w += dw
         else:
-            # ramp ทั้งคู่ให้นุ่มนวล
-            max_step = max(1e-6, self.ramp * dt)
-            dv = max(-max_step, min(max_step, self.v_target - self.cur_v))
-            dw = max(-max_step, min(max_step, self.w_target - self.cur_w))
+            max_step_v = max(1e-6, self.ramp_lin * dt)
+            max_step_w = max(1e-6, self.ramp_ang * dt)
+            dv = max(-max_step_v, min(max_step_v, self.v_target - self.cur_v))
+            dw = max(-max_step_w, min(max_step_w, self.w_target - self.cur_w))
             self.cur_v += dv
             self.cur_w += dw
 
