@@ -28,6 +28,7 @@
    ========================================================================= */
 #ifdef Node1
 #include <Arduino.h>
+#include <Encoder.h>
 
 #define LF_IN1 14
 #define LF_IN2 12
@@ -38,6 +39,17 @@
 #define RF_IN2 25
 #define RR_IN1 4
 #define RR_IN2 0
+
+// ========================= Encoder Pins =========================
+// Yellow = Phase A, Green = Phase B
+#define ENC_LR_A 16
+#define ENC_LR_B 17
+
+// create object encoder 
+Encoder encRear(ENC_LR_A, ENC_LR_B);
+// lastest position
+long oldL = 0;
+long oldR = 0;
 
 // ========================= LEDC PWM =========================
 static constexpr int PWM_FREQ_HZ = 20000; // 20kHz เงียบ
