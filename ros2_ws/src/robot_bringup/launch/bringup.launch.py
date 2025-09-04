@@ -19,7 +19,7 @@ def generate_launch_description():
 
         # พรีเซ็ตตามฮาร์ดแวร์ของคุณ (ล้อ 5", 37 rpm, พื้นดิน)
         DeclareLaunchArgument('max_linear', default_value='1.0'),  # m/s
-        DeclareLaunchArgument('max_angular', default_value='0.5'),  # rad/s
+        DeclareLaunchArgument('max_angular', default_value='0.7'),  # rad/s
 
         # Joy driver + autorepeat กันคำสั่งวูบ
         Node(
