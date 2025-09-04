@@ -26,7 +26,7 @@
 
    Board: ESP32 (Arduino core)
    ========================================================================= */
-
+#ifdef Node1
 #include <Arduino.h>
 
 #define LF_IN1 14
@@ -352,3 +352,4 @@ void loop()
 
   delay(5);
 }
+#endif
