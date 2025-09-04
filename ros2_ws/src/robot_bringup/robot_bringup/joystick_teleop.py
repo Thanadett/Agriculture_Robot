@@ -49,7 +49,7 @@ class JoystickTeleop(Node):
         # m/s  (≈ 5" wheel @ 37 rpm)
         self.declare_parameter('max_linear', 1.0)
         # rad/s (ฐาน ~0.3–0.35 m บนดิน)
-        self.declare_parameter('max_angular', 3.0)
+        self.declare_parameter('max_angular', 6.0)
         self.declare_parameter('deadzone', 0.12)
         self.declare_parameter('expo_linear', 0.30)
         self.declare_parameter('expo_angular', 0.35)
