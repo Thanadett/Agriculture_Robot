@@ -26,8 +26,12 @@ def generate_launch_description():
             executable='joy_node',
             name='joy_node',
             output='screen',
-            parameters=[{'autorepeat_rate': 50.0}],
+            parameters=[{
+                'autorepeat_rate': 50.0,
+                'deadzone': LaunchConfiguration('deadzone')
+            }],
         ),
+
 
         # Joystick teleop (two-stick; RB linear instant; B e-stop)
         Node(
