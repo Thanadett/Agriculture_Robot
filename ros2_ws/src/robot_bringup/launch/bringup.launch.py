@@ -17,8 +17,8 @@ def generate_launch_description():
         DeclareLaunchArgument('joy_topic', default_value='/joy'),
 
         # พรีเซ็ตตามฮาร์ดแวร์ของคุณ (ล้อ 5", 37 rpm, พื้นดิน)
-        DeclareLaunchArgument('max_linear', default_value='0.24'),  # m/s
-        DeclareLaunchArgument('max_angular', default_value='1.3'),  # rad/s
+        DeclareLaunchArgument('max_linear', default_value='1'),  # m/s
+        DeclareLaunchArgument('max_angular', default_value='0.5'),  # rad/s
 
         # Joy driver + autorepeat กันคำสั่งวูบ
         Node(

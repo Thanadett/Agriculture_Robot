@@ -17,8 +17,8 @@ def generate_launch_description():
         DeclareLaunchArgument('joy_topic', default_value='/joy'),
 
         # พรีเซ็ตตามฮาร์ดแวร์ของคุณ (ล้อ 5", 37 rpm, พื้นดิน)
-        DeclareLaunchArgument('max_linear', default_value='0.24'),  # m/s
-        DeclareLaunchArgument('max_angular', default_value='1.3'),  # rad/s
+        DeclareLaunchArgument('max_linear', default_value='1'),  # m/s
+        DeclareLaunchArgument('max_angular', default_value='0.5'),  # rad/s
 
         # Joy driver + autorepeat กันคำสั่งวูบ
         Node(
@@ -26,7 +26,7 @@ def generate_launch_description():
             executable='joy_node',
             name='joy_node',
             output='screen',
-            parameters=[{'autorepeat_rate': 50.0}],  # สำคัญมาก
+            parameters=[{'autorepeat_rate': 50.0}],
         ),
 
         # Joystick teleop (two-stick; RB linear instant; B e-stop)
@@ -44,10 +44,10 @@ def generate_launch_description():
                 'expo_angular': 0.35,
                 'ramp_rate': 3.0,
                 'joy_timeout_ms': 2000,
-                'btn_turbo': 5,             # RB
-                'btn_emergency_stop': 1,    # B
-                'axis_left_y': 1,           # throttle
-                'axis_right_x': 3           # steering
+                'btn_turbo': 5,
+                'btn_emergency_stop': 1,
+                'axis_left_y': 1,
+                'axis_right_x': 3
             }],
         ),
 
@@ -57,6 +57,6 @@ def generate_launch_description():
             executable='serial_bridge',
             name='serial_bridge',
             output='screen',
-            parameters=[{'port': port, 'baud': int(baud.perform(None))}],
+            parameters=[{'port': port, 'baud': baud}],
         ),
     ])
