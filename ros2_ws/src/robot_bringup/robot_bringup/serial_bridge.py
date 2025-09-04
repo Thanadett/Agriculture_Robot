@@ -12,7 +12,7 @@ class SerialBridge(Node):
         self.declare_parameter('port', '/dev/ttyUSB0')
         self.declare_parameter('baud', 115200)
         self.declare_parameter('max_linear', 1.0)
-        self.declare_parameter('max_angular', 6.0)
+        self.declare_parameter('max_angular', 10.0)
 
         port = self.get_parameter('port').get_parameter_value().string_value
         baud = int(self.get_parameter('baud').value)

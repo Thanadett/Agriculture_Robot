@@ -49,10 +49,10 @@ class JoystickTeleop(Node):
         # m/s  (≈ 5" wheel @ 37 rpm)
         self.declare_parameter('max_linear', 1.0)
         # rad/s (ฐาน ~0.3–0.35 m บนดิน)
-        self.declare_parameter('max_angular', 6.0)
+        self.declare_parameter('max_angular', 10.0)
         self.declare_parameter('deadzone', 0.12)
         self.declare_parameter('expo_linear', 0.30)
-        self.declare_parameter('expo_angular', 0.35)
+        self.declare_parameter('expo_angular', 2.0)
         self.declare_parameter('ramp_rate', 3.0)       # [1/s]
         # ควรเปิด joy_node autorepeat 50 Hz
         self.declare_parameter('joy_timeout_ms', 2000)
