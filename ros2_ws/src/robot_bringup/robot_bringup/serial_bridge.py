@@ -5,12 +5,13 @@ from geometry_msgs.msg import Twist
 import serial
 import threading
 
+
 class SerialBridge(Node):
     def __init__(self):
         super().__init__('serial_bridge')
         self.declare_parameter('port', '/dev/ttyUSB0')
         self.declare_parameter('baud', 115200)
-        self.declare_parameter('max_linear', 1)
+        self.declare_parameter('max_linear', 1.0)
         self.declare_parameter('max_angular', 0.5)
 
         port = self.get_parameter('port').get_parameter_value().string_value
@@ -66,6 +67,7 @@ class SerialBridge(Node):
             pass
         return super().destroy_node()
 
+
 def main():
     rclpy.init()
     node = SerialBridge()
@@ -74,6 +76,7 @@ def main():
     finally:
         node.destroy_node()
         rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

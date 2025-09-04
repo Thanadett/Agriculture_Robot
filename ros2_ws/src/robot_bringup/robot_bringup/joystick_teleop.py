@@ -47,7 +47,7 @@ class JoystickTeleop(Node):
 
         # tuning (set defaults to your hardware/terrain)
         # m/s  (≈ 5" wheel @ 37 rpm)
-        self.declare_parameter('max_linear', 1)
+        self.declare_parameter('max_linear', 1.0)
         # rad/s (ฐาน ~0.3–0.35 m บนดิน)
         self.declare_parameter('max_angular', 0.5)
         self.declare_parameter('deadzone', 0.12)
