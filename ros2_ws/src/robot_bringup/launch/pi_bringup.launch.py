@@ -2,7 +2,7 @@
 import sys
 import os
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, ExecuteProcess 
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -28,21 +28,20 @@ def generate_launch_description():
         DeclareLaunchArgument('video_device', default_value='0'),
         DeclareLaunchArgument('width', default_value='640'),
         DeclareLaunchArgument('height', default_value='480'),
-        DeclareLaunchArgument('fps', default_value='30'),
+        DeclareLaunchArgument('fps', default_value='30'),            
         DeclareLaunchArgument('web_port', default_value='5000'),
 
-        Node(
-            package='robot_bringup',
-            executable='/home/prukubt/Agriculture_Robot/ros2_ws/run_camera.sh',
-            arguments=[
+        ExecuteProcess(
+            cmd=[
+                'python3', 
+                'install/robot_bringup/lib/robot_bringup/camera_stream',
                 '--device', LaunchConfiguration('video_device'),
                 '--width', LaunchConfiguration('width'),
                 '--height', LaunchConfiguration('height'),
                 '--fps', LaunchConfiguration('fps'),
                 '--port', LaunchConfiguration('web_port')
             ],
-            name='camera_stream',
-            output='screen',
-            emulate_tty=True,
-        )
-    ])
+            output='screen'
+        )    
+    ]        
+)
