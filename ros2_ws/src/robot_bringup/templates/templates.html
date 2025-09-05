@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Remote Cam & Control</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial; background:#0e0e10; color:#eaeaea; }
+  .wrap { display:grid; grid-template-columns: 1fr 360px; gap:16px; padding:16px; }
+  .card { background:#1a1b1e; border-radius:14px; padding:14px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+  h2 { margin:6px 0 12px; font-size:18px; }
+  #video { width:100%; height:auto; border-radius:12px; background:#000; display:block; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  label { font-size:12px; opacity:.8; }
+  input[type="number"], select { background:#111217; color:#eaeaea; border:1px solid #2a2c35; border-radius:8px; padding:6px 8px; width:90px; }
+  button { background:#2b7cff; color:#fff; border:none; border-radius:10px; padding:8px 12px; cursor:pointer; }
+  button.ghost { background:#2a2c35; }
+  .kv { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; white-space:pre-wrap; word-break:break-word; max-height:320px; overflow:auto; background:#121318; border-radius:10px; padding:10px; }
+  .overlay { position:relative; }
+  #joy { position:absolute; bottom:16px; left:16px; width:220px; height:220px; touch-action:none; }
+  #joy canvas { width:100%; height:100%; border-radius:50%; background:radial-gradient(ellipse at center, rgba(255,255,255,.04), rgba(0,0,0,.2)); }
+  .badge { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:#121318; border:1px solid #2a2c35; border-radius:999px; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card overlay">
+    <h2>Live Video</h2>
+    <div class="row" style="margin-bottom:8px;">
+      <span class="badge">Latency: <b id="lat">-- ms</b></span>
+      <span class="badge">Server FPS: <b id="sfps">--</b></span>
+      <span class="badge">CPU Temp: <b id="ct">--</b></span>
+      <span class="badge">Cmd v: <b id="v">0.00</b> m/s</span>
+      <span class="badge">Cmd w: <b id="w">0.00</b> rad/s</span>
+    </div>
+    <img id="video" src="/video" alt="stream"/>
+    <!-- Virtual joystick -->
+    <div id="joy"><canvas id="joyc"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h2>Controls</h2>
+    <div class="row">
+      <label>W</label><input type="number" id="w_in" value="640" min="160" step="10">
+      <label>H</label><input type="number" id="h_in" value="480" min="120" step="10">
+      <label>FPS</label><input type="number" id="fps_in" value="30" min="5" max="60">
+      <label>Flip</label><select id="flip_in"><option value="1">1</option><option value="0">0</option></select>
+    </div>
+    <div class="row" style="margin-top:6px;">
+      <label>JPEG Q</label><input type="number" id="q_in" value="80" min="10" max="95">
+      <label>Center</label><select id="center_in"><option value="1">on</option><option value="0">off</option></select>
+      <label>Show FPS</label><select id="showfps_in"><option value="1">on</option><option value="0">off</option></select>
+      <label>Speed</label><select id="showspeed_in"><option value="1">on</option><option value="0">off</option></select>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <button id="apply">Apply</button>
+      <button id="reload" class="ghost">Reload stream</button>
+    </div>
+
+    <h2 style="margin-top:16px;">Monitoring & Debug</h2>
+    <div class="kv" id="dbg">{}</div>
+  </div>
+</div>
+
+<script>
+  // ---------- Latency probing (RTT/2) ----------
+  async function probeLatency(){
+    const t0 = performance.now();
+    await fetch('/health', {cache:'no-store'});
+    const rtt = performance.now()-t0;
+    document.getElementById('lat').textContent = Math.round(rtt/2) + ' ms';
+  }
+  setInterval(probeLatency, 1000);
+  probeLatency();
+
+  // ---------- Stats poll ----------
+  async function pollStats(){
+    const res = await fetch('/stats', {cache:'no-store'});
+    const js = await res.json();
+    document.getElementById('sfps').textContent = js.stats.capture_fps.toFixed(1);
+    document.getElementById('ct').textContent = js.cpu_temp == null ? '--' : js.cpu_temp.toFixed(1)+'°C';
+    document.getElementById('v').textContent = (js.drive.linear||0).toFixed(2);
+    document.getElementById('w').textContent = (js.drive.angular||0).toFixed(2);
+    document.getElementById('dbg').textContent = JSON.stringify(js, null, 2);
+  }
+  setInterval(pollStats, 1000);
+  pollStats();
+
+  // ---------- Config apply ----------
+  document.getElementById('apply').onclick = async () => {
+    const payload = {
+      width:  parseInt(document.getElementById('w_in').value||640),
+      height: parseInt(document.getElementById('h_in').value||480),
+      fps:    parseInt(document.getElementById('fps_in').value||30),
+      flip:   parseInt(document.getElementById('flip_in').value||1),
+      jpeg_quality: parseInt(document.getElementById('q_in').value||80),
+      show_center:  document.getElementById('center_in').value==='1',
+      show_fps:     document.getElementById('showfps_in').value==='1',
+      show_speed:   document.getElementById('showspeed_in').value==='1',
+    };
+    await fetch('/config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+  };
+  document.getElementById('reload').onclick = () => {
+    const img = document.getElementById('video');
+    img.src = '/video?_=' + Date.now(); // refresh MJPEG src
+  };
+
+  // ---------- Virtual Joystick ----------
+  const joy = document.getElementById('joy');
+  const cvs = document.getElementById('joyc');
+  const ctx = cvs.getContext('2d');
+  let dragging = false, center = {x:0,y:0}, knob = {x:0,y:0};
+  function size() {
+    const r = joy.getBoundingClientRect();
+    cvs.width = r.width; cvs.height = r.height;
+    center.x = r.width/2; center.y = r.height/2;
+    knob.x = center.x; knob.y = center.y;
+    draw();
+  }
+  window.addEventListener('resize', size); size();
+
+  function draw() {
+    const w=cvs.width,h=cvs.height;
+    ctx.clearRect(0,0,w,h);
+    // base circle
+    ctx.beginPath(); ctx.arc(center.x, center.y, Math.min(w,h)/2-8, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 3; ctx.stroke();
+    // cross
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.beginPath(); ctx.moveTo(center.x, 8); ctx.lineTo(center.x, h-8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(8, center.y); ctx.lineTo(w-8, center.y); ctx.stroke();
+    // knob
+    ctx.beginPath(); ctx.arc(knob.x, knob.y, 22, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(43,124,255,0.85)'; ctx.fill();
+  }
+
+  function norm(x,y){
+    const rx = (x-center.x)/(cvs.width/2-10);
+    const ry = (y-center.y)/(cvs.height/2-10);
+    const len = Math.hypot(rx, ry);
+    const k = len>1 ? 1/len : 1;
+    return {x: rx*k, y: ry*k};
+  }
+
+  function setKnobFromClient(x, y){
+    const r = cvs.getBoundingClientRect();
+    const nx = Math.max(10, Math.min(x - r.left, r.width-10));
+    const ny = Math.max(10, Math.min(y - r.top,  r.height-10));
+    knob.x = nx; knob.y = ny; draw();
+    const v = norm(nx, ny);
+    // map: up = positive linear, right = negative angular? (ปรับตามที่ชอบ)
+    const linear = -(v.y);      // forward = up
+    const angular = -(v.x)*2.0; // yaw
+    sendDrive(linear, angular);
+  }
+
+  function resetKnob(){
+    knob.x = center.x; knob.y = center.y; draw();
+    sendDrive(0,0);
+  }
+
+  let lastSend=0;
+  async function sendDrive(lin, ang){
+    const now = performance.now();
+    if (now - lastSend < 50) return; // 20 Hz
+    lastSend = now;
+    await fetch('/api/drive', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({linear: lin, angular: ang})
+    }).catch(()=>{});
+  }
+
+  // mouse
+  cvs.addEventListener('mousedown', e=>{ dragging=true; setKnobFromClient(e.clientX, e.clientY); });
+  window.addEventListener('mousemove', e=>{ if(dragging) setKnobFromClient(e.clientX, e.clientY); });
+  window.addEventListener('mouseup', ()=>{ dragging=false; resetKnob(); });
+
+  // touch
+  cvs.addEventListener('touchstart', e=>{ dragging=true; const t=e.touches[0]; setKnobFromClient(t.clientX, t.clientY); e.preventDefault(); }, {passive:false});
+  cvs.addEventListener('touchmove', e=>{ if(!dragging) return; const t=e.touches[0]; setKnobFromClient(t.clientX, t.clientY); e.preventDefault(); }, {passive:false});
+  cvs.addEventListener('touchend', ()=>{ dragging=false; resetKnob(); });
+
+</script>
+</body>
+</html>

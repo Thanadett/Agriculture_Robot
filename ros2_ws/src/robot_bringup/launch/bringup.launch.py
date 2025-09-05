@@ -18,6 +18,8 @@ def generate_launch_description():
         DeclareLaunchArgument('height', default_value='480'),
         DeclareLaunchArgument('fps_num', default_value='1'),
         DeclareLaunchArgument('fps_den', default_value='30'),
+        # เพิ่ม port สำหรับ web UI
+        DeclareLaunchArgument('web_port', default_value='5000'),
     ]
 
     # LaunchConfigurations
@@ -31,6 +33,7 @@ def generate_launch_description():
     height = LaunchConfiguration('height')
     fps_num = LaunchConfiguration('fps_num')
     fps_den = LaunchConfiguration('fps_den')
+    web_port = LaunchConfiguration('web_port')
 
     # Nodes
     nodes = [
@@ -69,7 +72,19 @@ def generate_launch_description():
             }],
         ),
 
-        # Serial bridge
+        # Flask Camera Stream Node
+        Node(
+            package='agri_webui',
+            executable='camera_stream',
+            name='camera_stream',
+            output='screen',
+            parameters=[{
+                'port': web_port,
+                'host': '0.0.0.0'
+            }],
+        ),
+
+        # Serial bridge (ถ้าอยากเปิด)
         # Node(
         #     package='robot_bringup',
         #     executable='serial_bridge',

@@ -1,0 +1,5 @@
+flask>=3.1,<4
+opencv-python>=4.12
+numpy>=1.25
+rclpy
+geometry-msgs
