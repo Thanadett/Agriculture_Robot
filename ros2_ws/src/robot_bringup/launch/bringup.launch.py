@@ -74,7 +74,7 @@ def generate_launch_description():
 
         # Flask Camera Stream Node
         Node(
-            package='agri_webui',
+            package='robot_bringup',
             executable='camera_stream',
             name='camera_stream',
             output='screen',
