@@ -1,41 +1,43 @@
+import os
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
+# Path ของ python ใน virtual environment
+venv_python = os.path.expanduser('~/Agriculture_Robot/ros2_ws/.venv/bin/python')
 
 def generate_launch_description():
     # Declare launch arguments
     declare_args = [
-        DeclareLaunchArgument('port', default_value='/dev/ttyUSB0'),
-        DeclareLaunchArgument('baud', default_value='115200'),
+        DeclareLaunchArgument('port', default_value='5000'),
+        DeclareLaunchArgument('video_device', default_value='/dev/video0'),
+        DeclareLaunchArgument('width', default_value='640'),
+        DeclareLaunchArgument('height', default_value='480'),
+        DeclareLaunchArgument('fps_num', default_value='1'),
+        DeclareLaunchArgument('fps_den', default_value='30'),
         DeclareLaunchArgument('joy_topic', default_value='/joy'),
         DeclareLaunchArgument('deadzone', default_value='0.12'),
         DeclareLaunchArgument('max_linear', default_value='255.0'),
         DeclareLaunchArgument('max_angular', default_value='255.0'),
-        DeclareLaunchArgument('video_device', default_value='/dev/video0'),
-        DeclareLaunchArgument('width',  default_value='640'),
-        DeclareLaunchArgument('height', default_value='480'),
-        DeclareLaunchArgument('fps_num', default_value='1'),
-        DeclareLaunchArgument('fps_den', default_value='30'),
-        # เพิ่ม port สำหรับ web UI
-        DeclareLaunchArgument('web_port', default_value='5000'),
+        DeclareLaunchArgument('port_serial', default_value='/dev/ttyUSB0'),
+        DeclareLaunchArgument('baud', default_value='115200'),
     ]
 
     # LaunchConfigurations
-    port = LaunchConfiguration('port')
-    baud = LaunchConfiguration('baud')
-    joy_topic = LaunchConfiguration('joy_topic')
-    max_linear = LaunchConfiguration('max_linear')
-    max_angular = LaunchConfiguration('max_angular')
     video_device = LaunchConfiguration('video_device')
     width = LaunchConfiguration('width')
     height = LaunchConfiguration('height')
     fps_num = LaunchConfiguration('fps_num')
     fps_den = LaunchConfiguration('fps_den')
-    web_port = LaunchConfiguration('web_port')
+    web_port = LaunchConfiguration('port')
+    joy_topic = LaunchConfiguration('joy_topic')
+    deadzone = LaunchConfiguration('deadzone')
+    max_linear = LaunchConfiguration('max_linear')
+    max_angular = LaunchConfiguration('max_angular')
+    port_serial = LaunchConfiguration('port_serial')
+    baud = LaunchConfiguration('baud')
 
-    # Nodes
     nodes = [
         # Joy driver
         Node(
@@ -45,7 +47,7 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'autorepeat_rate': 50.0,
-                'deadzone': LaunchConfiguration('deadzone')
+                'deadzone': deadzone
             }],
         ),
 
@@ -72,27 +74,22 @@ def generate_launch_description():
             }],
         ),
 
-        # Flask Camera Stream Node
+        # Flask Camera Stream Node ผ่าน venv Python
         Node(
             package='robot_bringup',
-            executable='camera_stream',
+            executable=venv_python,
+            arguments=[
+                '-m', 'robot_bringup.camera_stream',
+                '--video_device', video_device,
+                '--width', width,
+                '--height', height,
+                '--fps_num', fps_num,
+                '--fps_den', fps_den,
+                '--port', web_port
+            ],
             name='camera_stream',
             output='screen',
-            parameters=[{
-                'port': web_port,
-                'host': '0.0.0.0'
-            }],
         ),
-
-        # Serial bridge (ถ้าอยากเปิด)
-        # Node(
-        #     package='robot_bringup',
-        #     executable='serial_bridge',
-        #     name='serial_bridge',
-        #     output='screen',
-        #     parameters=[{'port': port, 'baud': baud}],
-        # ),
     ]
 
-    # รวม launch arguments และ nodes
     return LaunchDescription(declare_args + nodes)

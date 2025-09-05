@@ -13,7 +13,12 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', glob('launch/*.py')),
     ],
-    install_requires=['setuptools', 'pyserial'],
+    install_requires=[
+        'setuptools',
+        'pyserial',
+        'flask',
+        'opencv-python'
+    ],
     zip_safe=True,
     maintainer='You',
     maintainer_email='you@example.com',
@@ -26,4 +31,5 @@ setup(
             'camera_stream = robot_bringup.camera_stream:main',
         ],
     },
+    python_requires='>=3.12',
 )
