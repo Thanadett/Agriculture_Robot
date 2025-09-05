@@ -23,7 +23,7 @@ void loop() {
   motorDrive_update();            // watchdog + PWM
 
   static uint32_t last = 0;
-  const uint32_t FEEDBACK_INTERVAL_MS = 400;  // ปรับความถี่พิมพ์ได้
+  const uint32_t FEEDBACK_INTERVAL_MS = 500;  // ปรับความถี่พิมพ์ได้
   if (millis() - last >= FEEDBACK_INTERVAL_MS) {
     last = millis();
     enc.printFB(Serial);   // FB_ENC

@@ -6,6 +6,12 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+String cutline = "===============================================================================";
+String underline = "_______________________________________________________________________________";
+
+//กดปุ่มเพื่อเริ่มกำหนด จุดเริ่มต้น เพื่อหาว่าครบ 0.15 m นับจากจุดเริ่มต้นตอนไหน
+//หมุนไปข้างหน้าระยะ 15 cm(0.15 m) ต้องหมุนทั้งหมด 0.15/(2*Pi*(0.127/2)) = 0.375967 รอบ
+
 // ======================= Constructor =======================
 // กำหนดขา A/B ของล้อหลัง (rear) และล้อหน้า (front)
 // พร้อมกำหนดค่า PPR (pulses per revolution) ของ encoder (output shaft)
@@ -107,6 +113,7 @@ void DualEncoderReader::update() {
 // และพิมพ์ “TOTAL” ไว้ด้านบน
 void DualEncoderReader::printFB(Stream& s) const {
   // --- พิมพ์ระยะรวมสะสม (ไม่รีเซ็ต) ---
+  s.println(cutline);
   s.printf("TOTAL   | Total_R=%.6f Total_F=%.6f\n",
            total_dist_R_m_, total_dist_F_m_);
 
@@ -127,9 +134,9 @@ void DualEncoderReader::printFB(Stream& s) const {
   // ระยะในรอบปัจจุบัน = ส่วนเศษของรอบ * เส้นรอบวง
   float distR_cycle = fracR * C;
   float distF_cycle = fracF * C;
-
+  s.println(underline);
   // แสดง FB_ENC
-  s.printf("FB_ENC  | Vel_R=%.6f Vel_F=%.6f Dist_R=%.6f Dist_F=%.6f\n",
+  s.printf("FB_ENC  | Vel_R=%.6f Vel_F=%.6f Dist_R=%.6f     Dist_F=%.6f\n",
            velR_rad_s_, velF_rad_s_, distR_cycle, distF_cycle);
 }
 
@@ -170,8 +177,9 @@ float DualEncoderReader::remainingToNextRevFrontM() const {
 // ======================= printFB2() =======================
 // แสดง C = เส้นรอบวงล้อ และระยะที่เหลือ RL/RR
 void DualEncoderReader::printFB2(Stream& s) const {
-  s.printf("FB_ENC2 | C=%.6f DistLeft_R=%.6f DistLeft_F=%.6f\n",
+  s.printf("FB_ENC2 | C=%.6f                    DistLeft_R=%.6f DistLeft_F=%.6f\n",
            circumferenceM(),
            remainingToNextRevRearM(),
            remainingToNextRevFrontM());
+  s.println(cutline);
 }
