@@ -33,21 +33,16 @@ def generate_launch_description():
 
         Node(
             package='robot_bringup',
-            executable=sys.executable,
+            executable='/home/prukubt/Agriculture_Robot/ros2_ws/run_camera.sh',
             arguments=[
-                '-m', 'robot_bringup.camera_stream',
                 '--device', LaunchConfiguration('video_device'),
                 '--width', LaunchConfiguration('width'),
                 '--height', LaunchConfiguration('height'),
-                '--fps', LaunchConfiguration('fps')
+                '--fps', LaunchConfiguration('fps'),
+                '--port', LaunchConfiguration('web_port')
             ],
-             name='camera_stream',
+            name='camera_stream',
             output='screen',
             emulate_tty=True,
-            env={
-                'PYTHONPATH': '/home/prukubt/Agriculture_Robot/ros2_ws/install/robot_bringup/lib/python3.12/site-packages'
-            }
         )
-
-
     ])
