@@ -1,6 +1,5 @@
 from launch_ros.actions import Node
 
-
 def get_camera_nodes(
     video_device,
     width,
@@ -9,6 +8,7 @@ def get_camera_nodes(
     fps_den,
     enable_compressed=True,
     qos_best_effort=True,
+    add_foxglove=False,  # เพิ่ม parameter
 ):
     # พารามิเตอร์กล้อง (รองรับ LaunchConfiguration ที่ส่งเข้ามาได้)
     v4l2_params = {
@@ -53,13 +53,14 @@ def get_camera_nodes(
         )
 
     # Foxglove Bridge (WebSocket :8765)
-    nodes.append(
-        Node(
-            package='foxglove_bridge',
-            executable='foxglove_bridge',
-            name='foxglove_bridge',
-            output='screen',
+    if add_foxglove:
+        nodes.append(
+            Node(
+                package='foxglove_bridge',
+                executable='foxglove_bridge',
+                name='foxglove_bridge',
+                output='screen',
+            )
         )
-    )
 
     return nodes

@@ -23,6 +23,7 @@ setup(
         'console_scripts':[
             'joystick_teleop = robot_bringup.joystick_teleop:main',
             'serial_bridge = robot_bringup.serial_bridge:main',
+            'camera_hud = robot_bringup.camera_hud:main'
         ],
     },
 )

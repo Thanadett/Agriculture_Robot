@@ -20,18 +20,14 @@ def generate_launch_description():
     fps_num = LaunchConfiguration('fps_num')
     fps_den = LaunchConfiguration('fps_den')
 
-    # list ของ actions
     actions = [
+        # Declare launch arguments
         DeclareLaunchArgument('port', default_value='/dev/ttyUSB0'),
         DeclareLaunchArgument('baud', default_value='115200'),
         DeclareLaunchArgument('joy_topic', default_value='/joy'),
         DeclareLaunchArgument('deadzone', default_value='0.12'),
-
-        # พรีเซ็ตตามฮาร์ดแวร์
         DeclareLaunchArgument('max_linear', default_value='255.0'),
         DeclareLaunchArgument('max_angular', default_value='255.0'),
-
-        # กล้อง USB
         DeclareLaunchArgument('video_device', default_value='/dev/video0'),
         DeclareLaunchArgument('width',  default_value='640'),
         DeclareLaunchArgument('height', default_value='480'),
@@ -82,22 +78,21 @@ def generate_launch_description():
             parameters=[{'port': port, 'baud': baud}],
         ),
 
+        # Camera HUD
         Node(
             package='robot_bringup',
             executable='camera_hud',
             name='camera_hud',
             output='screen',
             parameters=[{
-                'image_topic': '/image_raw/compressed',  # ใช้ compressed เพื่อลดหน่วง
+                'image_topic': '/image_raw/compressed',
                 'joy_topic':   '/joy',
                 'cmd_topic':   '/cmd_vel',
-
                 'show_fps': True,
                 'show_latency': True,
                 'show_center': True,
                 'show_joy': True,
                 'show_speed': True,
-
                 'font_scale': 0.6,
                 'thickness': 2,
                 'alpha': 0.25,
@@ -112,8 +107,17 @@ def generate_launch_description():
                 'latency_cap_ms': 500,
             }],
         ),
+
+        # Foxglove Bridge (ตัวเดียว)
+        Node(
+            package='foxglove_bridge',
+            executable='foxglove_bridge',
+            name='foxglove_bridge',
+            output='screen',
+        ),
     ]
 
+    # เพิ่ม nodes ของกล้อง (ไม่ต้องสร้าง foxglove_bridge ซ้ำ)
     actions += get_camera_nodes(
         video_device=video_device,
         width=width,
@@ -122,6 +126,7 @@ def generate_launch_description():
         fps_den=fps_den,
         enable_compressed=True,
         qos_best_effort=True,
+        add_foxglove=False
     )
 
     return LaunchDescription(actions)
