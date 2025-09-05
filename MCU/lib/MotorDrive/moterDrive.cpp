@@ -84,9 +84,9 @@ void cmdVW_to_targets(float V_mps, float W_radps) {
   float omegaL = vL / WHEEL_RADIUS;
   float omegaR = vR / WHEEL_RADIUS;
 
-  // แมปเป็น PWM normalized โดยใช้ MAX_OMEGA_FOR_FULL
-  float pwmL = clampf(omegaL / MAX_OMEGA_FOR_FULL, -1.f, 1.f);
-  float pwmR = clampf(omegaR / MAX_OMEGA_FOR_FULL, -1.f, 1.f);
+  // แมปเป็น PWM normalized โดยใช้ OMEGA_WHEEL_FULL (คำนวณจาก MAX_LINEAR_UNITS/WHEEL_RADIUS)
+  float pwmL = clampf(omegaL / OMEGA_WHEEL_FULL, -1.f, 1.f);
+  float pwmR = clampf(omegaR / OMEGA_WHEEL_FULL, -1.f, 1.f);
 
   // กระจายค่าเดียวกันไปล้อหน้า/หลังของแต่ละฝั่ง
   tgt_LF = pwmL;

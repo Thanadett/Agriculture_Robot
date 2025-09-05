@@ -1,36 +1,51 @@
-// encoder_reader.cpp
 #include "encoder_reader.h"
 #include <math.h>
 
+// ถ้า M_PI ไม่ถูก define (บาง compiler) → กำหนดเอง
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
-// NOTE: ปรับชื่อพารามิเตอร์ให้ตรงกับ .h: rearA/rearB, frontA/frontB
+// ======================= Constructor =======================
+// กำหนดขา A/B ของล้อหลัง (rear) และล้อหน้า (front)
+// พร้อมกำหนดค่า PPR (pulses per revolution) ของ encoder (output shaft)
 DualEncoderReader::DualEncoderReader(int rearA, int rearB, int frontA, int frontB,
                                      float pulses_per_rev_output)
 : rA_(rearA), rB_(rearB), fA_(frontA), fB_(frontB),
   ppr_out_(pulses_per_rev_output) {}
 
+
+// ======================= begin() =======================
+// เรียกครั้งเดียวใน setup() เพื่อเตรียม encoder
 void DualEncoderReader::begin(bool enable_internal_pullups) {
+  // ใช้ internal pull-up resistor ถ้าเลือก true
   ESP32Encoder::useInternalWeakPullResistors = enable_internal_pullups ? UP : DOWN;
 
-  // แนบ encoder ตามด้าน "หลัง/หน้า" ให้ตรงกับ .h
-  encR_.attachHalfQuad(rA_, rB_); //Half-Quadrature mode => x2 counts per pulse
-  encF_.attachHalfQuad(fA_, fB_); //reset count to zero
+  // attachHalfQuad → ใช้โหมด half-quadrature (นับขาขึ้น+ลงของช่อง A เทียบกับ B)
+  encR_.attachHalfQuad(rA_, rB_);
+  encF_.attachHalfQuad(fA_, fB_);
   encR_.clearCount();
   encF_.clearCount();
 
-  // ค่าเริ่มต้นล่าสุด
-  lastR_ = encR_.getCount(); //เก็บค่า pulse ล่าสุด
+  // เก็บค่า count เริ่มต้น
+  lastR_ = encR_.getCount();
   lastF_ = encF_.getCount();
-  //เซ็ตค่าเริ่มต้นของ ตำแหน่งเชิงมุม (rad) และ ความเร็วเชิงมุม (rad/s) เป็นศูนย์
+
+  // ค่าเริ่มต้นของตำแหน่งและความเร็ว
   posR_rad_ = posF_rad_ = 0.f;
   velR_rad_s_ = velF_rad_s_ = 0.f;
+
+  // reset ระยะรวมสะสม
+  total_dist_R_m_ = 0.f;   
+  total_dist_F_m_ = 0.f;
+
+  // เก็บ timestamp ไว้ใช้คำนวณ dt
   last_ts_ms_ = millis();
 }
 
-// รีเซตซอฟต์ (สะสม/เวลา/มุม/สปีด)
+
+// ======================= reset() =======================
+// รีเซต encoder + ค่าต่าง ๆ กลับเป็น 0
 void DualEncoderReader::reset() {
   encR_.clearCount();
   encF_.clearCount();
@@ -38,69 +53,109 @@ void DualEncoderReader::reset() {
   lastF_ = 0;
   posR_rad_ = posF_rad_ = 0.f;
   velR_rad_s_ = velF_rad_s_ = 0.f;
+  total_dist_R_m_ = 0.f;
+  total_dist_F_m_ = 0.f;
   last_ts_ms_ = millis();
 }
 
+
+// ======================= update() =======================
+// เรียกบ่อย ๆ ใน loop() → อัปเดตตำแหน่ง, ความเร็ว, ระยะสะสม
 void DualEncoderReader::update() {
-  // อ่าน count ตามด้าน "หลัง/หน้า" และคูณด้วยทิศ (inv => -1, 1)
-  //curR, curF => จำนวนพัลส์ปัจจุบันที่อ่านได้จาก encoder หลัง/หน้า
+  // อ่านค่าพัลส์ปัจจุบันจาก encoder
   long curR = encR_.getCount() * invR_;
   long curF = encF_.getCount() * invF_;
 
-  //dR, dF => ความเปลี่ยนแปลงของ pulse ในรอบนี้ (ใช้หาความเร็ว)
+  // ความเปลี่ยนแปลงจากรอบก่อน (Δcount)
   long dR = curR - lastR_;
   long dF = curF - lastF_;
-  lastR_ = curR;
-  lastF_ = curF;
+  lastR_  = curR;
+  lastF_  = curF;
 
-  //dt → ช่วงเวลาที่ผ่านไป (วินาที) นับจากการอัปเดตครั้งก่อน
-  //ถ้า dt ≤ 0 ให้บังคับเป็น 0.001 s กันหารศูนย์
+  // เวลาที่ผ่านไปตั้งแต่รอบก่อน (s)
   uint32_t now = millis();
   float dt = (now - last_ts_ms_) / 1000.0f;
-  if (dt <= 0.f) dt = 1e-3f;
+  if (dt <= 0.f) dt = 1e-3f; // กันหารศูนย์
   last_ts_ms_ = now;
 
-  const float ppr = (ppr_out_ <= 0.f ? 1.f : ppr_out_);
+  const float ppr = (ppr_out_ <= 0.f ? 1.f : ppr_out_); // ป้องกันหารศูนย์
+  const float two_pi = 2.0f * (float)M_PI;
+  const float C = circumferenceM(); // เส้นรอบวงล้อ (m)
 
-  // ตำแหน่งเชิงมุม (rad) = (count / PPR) * 2π
-  posR_rad_ = ((float)curR / ppr) * 2.0f * (float)M_PI;
-  posF_rad_ = ((float)curF / ppr) * 2.0f * (float)M_PI;
+  // ============ ระยะทางรวม (สะสมตลอด) ============
+  // (Δcount / PPR) * C → ระยะทางที่เพิ่มขึ้นในรอบนี้
+  // fabsf() → นับเป็นระยะบวกเสมอ (absolute distance)
+  total_dist_R_m_ += fabsf(((float)dR / ppr) * C);
+  total_dist_F_m_ += fabsf(((float)dF / ppr) * C);
 
-  // ความเร็วเชิงมุม (rad/s)
+  // ============ ตำแหน่งเชิงมุม [rad] ============
+  // (count / PPR) * 2π
+  posR_rad_ = ((float)curR / ppr) * two_pi;
+  posF_rad_ = ((float)curF / ppr) * two_pi;
+
+  // ============ ความเร็วเชิงมุม [rad/s] ============
+  // ((Δcount / PPR) / dt) * 2π
   float revR_dt = ((float)dR / ppr) / dt;
   float revF_dt = ((float)dF / ppr) / dt;
-  velR_rad_s_ = revR_dt * 2.0f * (float)M_PI;
-  velF_rad_s_ = revF_dt * 2.0f * (float)M_PI;
+  velR_rad_s_ = revR_dt * two_pi;
+  velF_rad_s_ = revF_dt * two_pi;
 }
 
+
+// ======================= printFB() =======================
+// แสดงค่าความเร็ว + ระยะในรอบปัจจุบัน (รีเซ็ตทุกครั้งที่ครบ 1 รอบ)
+// และพิมพ์ “TOTAL” ไว้ด้านบน
 void DualEncoderReader::printFB(Stream& s) const {
-  // แบบใหม่: FB_ENC แสดงความเร็วเชิงมุม (rad/s) และ "ระยะทางรวม" (เมตร)
-  // ระยะทางรวม = รัศมีล้อ (m) * มุมที่หมุนไปแล้ว (rad)
-  float distL = wheel_radius_m_ * posR_rad_;
-  float distR = wheel_radius_m_ * posF_rad_;
-  s.printf("FB_ENC Vel_R=%.6f Vel_F=%.6f Dist_R=%.6f Dist_F=%.6f\n",
-           velR_rad_s_, velF_rad_s_, distL, distR);
+  // --- พิมพ์ระยะรวมสะสม (ไม่รีเซ็ต) ---
+  s.printf("TOTAL   | Total_R=%.6f Total_F=%.6f\n",
+           total_dist_R_m_, total_dist_F_m_);
+
+  // --- Dist_R/Dist_F = ระยะในรอบปัจจุบัน ---
+  // ไม่อ่าน getCount() ที่นี่ (เมธอดนี้เป็น const) ใช้มุมที่คำนวณจาก update() แทน
+  const float two_pi = 2.0f * (float)M_PI;
+  const float C      = circumferenceM();
+
+  // จำนวนรอบตั้งแต่เริ่ม (อาจเป็นลบได้หากหมุนย้อน)
+  float revR = posR_rad_ / two_pi;
+  float revF = posF_rad_ / two_pi;
+
+  // ส่วนเศษของจำนวนรอบในช่วง [0,1)
+  float fracR = revR - floorf(revR);
+  float fracF = revF - floorf(revF);
+  // (หมายเหตุ: ถ้า rev เป็นลบ floorf จะพา frac ไปอยู่ [0,1) ให้อยู่แล้ว)
+
+  // ระยะในรอบปัจจุบัน = ส่วนเศษของรอบ * เส้นรอบวง
+  float distR_cycle = fracR * C;
+  float distF_cycle = fracF * C;
+
+  // แสดง FB_ENC
+  s.printf("FB_ENC  | Vel_R=%.6f Vel_F=%.6f Dist_R=%.6f Dist_F=%.6f\n",
+           velR_rad_s_, velF_rad_s_, distR_cycle, distF_cycle);
 }
 
-//Calculate circumference of the wheel
+
+// ======================= circumferenceM() =======================
+// เส้นรอบวงล้อ (เมตร) = 2πR
 float DualEncoderReader::circumferenceM() const {
   return 2.0f * (float)M_PI * wheel_radius_m_;
 }
 
-//Calculate remaining distance to the next full revolution for the right wheel
-//C = circumference of the wheel
+
+// ======================= remainingToNextRevRearM() =======================
+// คำนวณระยะที่เหลือจนครบรอบถัดไป (ล้อหลัง)
 float DualEncoderReader::remainingToNextRevRearM() const {
   if (wheel_radius_m_ <= 0.f) return 0.f;
   const float C = circumferenceM();
   const float rev = posR_rad_ / (2.0f * (float)M_PI);
   const float rev_next = ceilf(rev);
   float remain_rev = rev_next - rev;
-  if (remain_rev < 1e-6f) remain_rev = 0.f;
+  if (remain_rev < 1e-6f) remain_rev = 0.f; // กันเศษทศนิยมเล็ก ๆ
   return remain_rev * C;
 }
 
-//Calculate remaining distance to the next full revolution for the right wheel
-//C = circumference of the wheel
+
+// ======================= remainingToNextRevFrontM() =======================
+// คำนวณระยะที่เหลือจนครบรอบถัดไป (ล้อหน้า)
 float DualEncoderReader::remainingToNextRevFrontM() const {
   if (wheel_radius_m_ <= 0.f) return 0.f;
   const float C = circumferenceM();
@@ -111,9 +166,11 @@ float DualEncoderReader::remainingToNextRevFrontM() const {
   return remain_rev * C;
 }
 
+
+// ======================= printFB2() =======================
+// แสดง C = เส้นรอบวงล้อ และระยะที่เหลือ RL/RR
 void DualEncoderReader::printFB2(Stream& s) const {
-  // FB_ENC2 แสดงเส้นรอบวงและระยะที่เหลือถึงรอบถัดไป
-  s.printf("FB_ENC2 C=%.6f DistLeft_R=%.6f DistLeft_F=%.6f\n",
+  s.printf("FB_ENC2 | C=%.6f DistLeft_R=%.6f DistLeft_F=%.6f\n",
            circumferenceM(),
            remainingToNextRevRearM(),
            remainingToNextRevFrontM());
