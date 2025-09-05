@@ -71,13 +71,13 @@ def generate_launch_description():
         ),
 
         # Serial bridge
-        Node(
-            package='robot_bringup',
-            executable='serial_bridge',
-            name='serial_bridge',
-            output='screen',
-            parameters=[{'port': port, 'baud': baud}],
-        ),
+        # Node(
+        #     package='robot_bringup',
+        #     executable='serial_bridge',
+        #     name='serial_bridge',
+        #     output='screen',
+        #     parameters=[{'port': port, 'baud': baud}],
+        # ),
 
         # Camera HUD
         Node(
