@@ -42,18 +42,18 @@ class JoystickTeleop(Node):
         self.declare_parameter('invert_right_x', 1.0)   # 1 หรือ -1
 
         # buttons  (B = turbo, A = emergency stop)
-        self.declare_parameter('btn_turbo', 1)          # B
+        self.declare_parameter('btn_turbo', 5)          # RB
         self.declare_parameter('btn_emergency_stop', 0)  # A
 
         # tuning
         self.declare_parameter('max_linear', 255.0)       # m/s
         self.declare_parameter('max_angular', 255.0)     # rad/s
         self.declare_parameter('deadzone', 0.12)
-        self.declare_parameter('expo_linear', 0.50)
-        self.declare_parameter('expo_angular', 0.55)
+        self.declare_parameter('expo_linear', 5.0)
+        self.declare_parameter('expo_angular', 5.5)
 
-        self.declare_parameter('ramp_rate_linear', 10.0)    # [1/s]
-        self.declare_parameter('ramp_rate_angular', 10.0)   # [1/s]
+        self.declare_parameter('ramp_rate_linear', 25.0)    # [1/s]
+        self.declare_parameter('ramp_rate_angular', 25.0)   # [1/s]
         self.declare_parameter('joy_timeout_ms', 2000)
 
         # ---------- Read params ----------

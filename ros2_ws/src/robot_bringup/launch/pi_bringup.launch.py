@@ -11,8 +11,8 @@ def generate_launch_description():
         # Serial to ESP32
         DeclareLaunchArgument('port_serial', default_value='/dev/ttyUSB0'),
         DeclareLaunchArgument('baud', default_value='115200'),
-        DeclareLaunchArgument('max_linear', default_value='0.25'),
-        DeclareLaunchArgument('max_angular', default_value='1.5'),
+        DeclareLaunchArgument('max_linear', default_value='255.0'),
+        DeclareLaunchArgument('max_angular', default_value='255.0'),
 
         Node(
             package='robot_bringup', executable='serial_bridge', name='serial_bridge', output='screen',
