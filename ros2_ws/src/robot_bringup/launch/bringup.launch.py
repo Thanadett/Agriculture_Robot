@@ -1,11 +1,12 @@
 import os
+import sys 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 # Path ของ python ใน virtual environment
-venv_python = os.path.expanduser('~/Agriculture_Robot/ros2_ws/.venv/bin/python')
+venv_python = sys.executable
 
 def generate_launch_description():
     # Declare launch arguments
@@ -80,16 +81,16 @@ def generate_launch_description():
             executable=venv_python,
             arguments=[
                 '-m', 'robot_bringup.camera_stream',
-                '--video_device', video_device,
-                '--width', width,
-                '--height', height,
-                '--fps_num', fps_num,
-                '--fps_den', fps_den,
-                '--port', web_port
+                '--video_device', video_device.perform(None),
+                '--width', width.perform(None),
+                '--height', height.perform(None),
+                '--fps', str(int(fps_num.perform(None) or 1) * 30 // int(fps_den.perform(None) or 30)),
+                '--port', web_port.perform(None)
             ],
             name='camera_stream',
             output='screen',
         ),
+
     ]
 
     return LaunchDescription(declare_args + nodes)
