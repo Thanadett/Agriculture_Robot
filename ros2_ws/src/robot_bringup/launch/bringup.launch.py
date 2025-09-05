@@ -2,7 +2,6 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from robot_bringup.camera_nodes import get_camera_nodes
 
 
 def generate_launch_description():
@@ -78,57 +77,7 @@ def generate_launch_description():
         #     output='screen',
         #     parameters=[{'port': port, 'baud': baud}],
         # ),
-
-        # Camera HUD
-        Node(
-            package='robot_bringup',
-            executable='camera_hud',
-            name='camera_hud',
-            output='screen',
-            parameters=[{
-                'image_topic': '/image_raw/compressed',
-                'joy_topic':   '/joy',
-                'cmd_topic':   '/cmd_vel',
-                'show_fps': True,
-                'show_latency': True,
-                'show_center': True,
-                'show_joy': True,
-                'show_speed': True,
-                'font_scale': 0.6,
-                'thickness': 2,
-                'alpha': 0.25,
-                'hud_color_bgr': [0, 255, 255],
-                'center_color_bgr': [0, 255, 0],
-                'joy_color_bgr': [255, 0, 0],
-                'speed_color_bgr': [0, 0, 255],
-                'center_size_px': 25,
-                'joy_scale': 0.9,
-                'speed_bar_len': 150,
-                'metrics_period_s': 1.0,
-                'latency_cap_ms': 500,
-            }],
-        ),
-
-        # Foxglove Bridge
-        Node(
-            package='foxglove_bridge',
-            executable='foxglove_bridge',
-            name='foxglove_bridge',
-            output='screen',
-        ),
     ]
-
-    # เพิ่ม nodes ของกล้อง
-    nodes += get_camera_nodes(
-        video_device=video_device,
-        width=width,
-        height=height,
-        fps_num=fps_num,
-        fps_den=fps_den,
-        enable_compressed=True,
-        qos_best_effort=True,
-        add_foxglove=False
-    )
 
     # รวม launch arguments และ nodes
     return LaunchDescription(declare_args + nodes)
