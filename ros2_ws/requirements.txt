@@ -1,5 +1,14 @@
-flask>=3.1,<4
-opencv-python>=4.12
-numpy>=1.25
-rclpy
-geometry-msgs
+# pip install -r requirements.txt
+
+
+# Core runtime dependencies
+flask>=2.2
+opencv-python>=4.8
+pyserial>=3.5
+
+# Build tools
+setuptools>=65
+
+# Optional:
+# pytest
+# mypy
