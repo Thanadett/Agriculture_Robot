@@ -1,5 +1,6 @@
 from launch_ros.actions import Node
 
+
 def get_camera_nodes(
     video_device,
     width,
@@ -14,7 +15,7 @@ def get_camera_nodes(
     v4l2_params = {
         'video_device': video_device,
         'image_size': [width, height],
-        'time_per_frame': [fps_num, fps_den],  # e.g. 1/30
+        'time_per_frame': fps_den / fps_num,  # e.g. 1/30
         'output_encoding': 'mjpeg',            # ลดแบนด์วิธ/หน่วง
     }
 
