@@ -41,9 +41,12 @@ def generate_launch_description():
                 '--height', LaunchConfiguration('height'),
                 '--fps', LaunchConfiguration('fps')
             ],
-            name='camera_stream',
+             name='camera_stream',
             output='screen',
             emulate_tty=True,
+            env={
+                'PYTHONPATH': '/home/prukubt/Agriculture_Robot/ros2_ws/install/robot_bringup/lib/python3.12/site-packages'
+            }
         )
 
 
