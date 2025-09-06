@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ROS2 Joystick → /cmd_vel (Two-stick; B = instant max on both axes; A = emergency stop)
+# ROS2 Joystick → /cmd_vel (RB = instant max; A = emergency stop)
 # Left stick Y  -> linear.x (เดินหน้า/ถอย)
 # Right stick X -> angular.z (เลี้ยวซ้าย/ขวา)
 
@@ -27,7 +27,7 @@ def expo(x: float, k: float) -> float:
 
 class JoystickTeleop(Node):
     def __init__(self):
-        super().__init__('joystick_teleop_two_stick')
+        super().__init__('joystick_teleop_stick')
 
         # ---------- Parameters ----------
         self.declare_parameter('joy_topic', '/joy')
@@ -41,7 +41,7 @@ class JoystickTeleop(Node):
         self.declare_parameter('invert_left_y', 1.0)    # 1 หรือ -1
         self.declare_parameter('invert_right_x', 1.0)   # 1 หรือ -1
 
-        # buttons  (B = turbo, A = emergency stop)
+        # buttons  (RB = turbo, A = emergency stop)
         self.declare_parameter('btn_turbo', 5)          # RB
         self.declare_parameter('btn_emergency_stop', 0)  # A
 
@@ -49,12 +49,12 @@ class JoystickTeleop(Node):
         self.declare_parameter('max_linear', 255.0)       # m/s
         self.declare_parameter('max_angular', 255.0)     # rad/s
         self.declare_parameter('deadzone', 0.12)
-        self.declare_parameter('expo_linear', 5.0)
-        self.declare_parameter('expo_angular', 5.5)
+        self.declare_parameter('expo_linear', 3.0)
+        self.declare_parameter('expo_angular', 2.5)
 
         self.declare_parameter('ramp_rate_linear', 500.0)   # [1/s]
         self.declare_parameter('ramp_rate_angular', 500.0)  # [1/s]
-        self.declare_parameter('joy_timeout_ms', 2000)
+        self.declare_parameter('joy_timeout_ms', 800)
 
         # ---------- Read params ----------
         def p(k): return self.get_parameter(k).get_parameter_value()
@@ -100,9 +100,7 @@ class JoystickTeleop(Node):
         self.timer = self.create_timer(0.02, self.tick)
 
         self.get_logger().info(
-            f'Joystick two-stick started: joy={joy_topic} -> cmd={cmd_vel_topic} | '
-            f'max_linear={self.max_lin:.3f} m/s, max_angular={self.max_ang:.2f} rad/s | '
-            f'B=instant MAX (linear & angular), A=E-STOP'
+            f'Joystick started: joy={joy_topic} -> cmd={cmd_vel_topic} | '
         )
 
     # -------- helpers --------
@@ -141,10 +139,10 @@ class JoystickTeleop(Node):
         v_norm = lin_in * self.max_lin
         w_norm = ang_in * self.max_ang
 
-        # B = instant max (both axes)
+        # RB = instant max 
         self.turbo_active = bool(self._btn(msg, self.btn_turbo))
         if self.turbo_active:
-            # ถ้าแกนเป็น 0 → คง 0 (ไม่บังคับให้เคลื่อนเอง)
+            # ถ้าแกนเป็น 0 -> คงที่ 0
             self.v_target = (math.copysign(self.max_lin, lin_in)
                              if abs(lin_in) > 0.0 else 0.0)
             self.w_target = (math.copysign(self.max_ang, ang_in)
@@ -159,18 +157,20 @@ class JoystickTeleop(Node):
         dt = now - self.t_last
         self.t_last = now
 
-        # ถ้าไม่มีสัญญาณจอยนานเกินที่กำหนด → หยุด
+        # ถ้าไม่มีสัญญาณจอยนานเกิน -> หยุด
         if (now - self.last_joy_time) * 1000.0 > self.joy_to_ms:
             self.v_target = 0.0
             self.w_target = 0.0
             self.turbo_active = False
 
-        if self.turbo_active:
-            # instant ทั้งสองแกน
+        if self._btn_last_estop: 
+            self.cur_v = 0.0
+            self.cur_w = 0.0
+        elif self.turbo_active:
             self.cur_v = self.v_target
             self.cur_w = self.w_target
+
         else:
-            # ramp นุ่มนวลตอนปกติ
             max_step_v = max(1e-6, self.ramp_lin * dt)
             max_step_w = max(1e-6, self.ramp_ang * dt)
             dv = max(-max_step_v, min(max_step_v, self.v_target - self.cur_v))
