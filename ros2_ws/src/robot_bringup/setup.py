@@ -13,8 +13,6 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', glob('launch/*.py')),
         ('lib/' + package_name, ['robot_bringup/run_camera.sh']),
-        ('share/' + package_name + '/templates', glob('templates/*')),
-        ('share/' + package_name + '/static', glob('static/*')),
     ],
     install_requires=[
         'setuptools',

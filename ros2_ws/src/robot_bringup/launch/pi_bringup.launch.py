@@ -26,8 +26,8 @@ def generate_launch_description():
 
         # Camera Stream (Flask)
         DeclareLaunchArgument('video_device', default_value='0'),
-        DeclareLaunchArgument('width', default_value='640'),
-        DeclareLaunchArgument('height', default_value='480'),
+        DeclareLaunchArgument('width', default_value='800'),
+        DeclareLaunchArgument('height', default_value='600'),
         DeclareLaunchArgument('fps', default_value='30'),            
         DeclareLaunchArgument('web_port', default_value='5000'),
 
