@@ -435,11 +435,10 @@ HTML_TEMPLATE = """
         let frameCount = 0;
         setInterval(() => {
             frameCount++;
-            if (frameCount % 60 === 0) { // Every 60 intervals (60 seconds)
+            if (frameCount % 120 === 0) { // Every 120 intervals (60 seconds)
                 console.log(`Performance: ${frameCount} telemetry updates, Stream: ${streamConnected ? 'Connected' : 'Disconnected'}`);
             }
-        }, 1000);
-
+        }, 500);
     </script>
 </body>
 </html>
