@@ -42,6 +42,6 @@ def generate_launch_description():
                 '--port', LaunchConfiguration('web_port')
             ],
             output='screen'
-        )    
+        )
     ]        
 )

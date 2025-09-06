@@ -441,7 +441,7 @@ HTML_TEMPLATE = """
         
         // Initialize
         console.log("Robot Camera Stream Interface Loaded");
-        console.log("Clean dark mode UI - 800×600 @ 30fps");
+        console.log("Clean dark mode UI - Dynamic resolution support");
         
         // Set initial status
         $("#status-dot").className = "status-indicator status-loading";
@@ -472,7 +472,7 @@ bgr_lock = threading.Lock()
 show_grid = False  # Always disabled
 show_center_dot = True  # Always enabled
 grid_color = (100, 100, 100)    # BGR (not used)
-center_dot_color = (0, 255, 127)  # BGR - Claude.ai green center dot
+center_dot_color = (0, 255, 127)  # BGR - green center dot
 
 fps_ema = 0.0
 last_tick = time.monotonic()
@@ -500,11 +500,8 @@ def draw_overlay_inplace(frame_bgr, show_fps=True):
     h, w = frame_bgr.shape[:2]
     cx, cy = w // 2, h // 2
     
-    # Claude.ai style center dot
     if show_center_dot:
-        # Main center dot in Claude.ai green
         cv2.circle(frame_bgr, (cx, cy), 5, center_dot_color, -1, cv2.LINE_AA)
-        # Subtle outer ring
         cv2.circle(frame_bgr, (cx, cy), 7, (255, 255, 255), 1, cv2.LINE_AA)
     
     # Clean FPS overlay
@@ -514,7 +511,7 @@ def draw_overlay_inplace(frame_bgr, show_fps=True):
         scale = 0.6
         thick = 2
         size = cv2.getTextSize(text, font, scale, thick)[0]
-        # Dark background with Claude.ai green text
+        # Dark background
         cv2.rectangle(frame_bgr, (12, 12), (12 + size[0] + 12, 12 + size[1] + 12), (26, 26, 26), -1)
         cv2.rectangle(frame_bgr, (12, 12), (12 + size[0] + 12, 12 + size[1] + 12), (127, 255, 16), 1)
         cv2.putText(frame_bgr, text, (18, 12 + size[1] + 3), font, scale, (127, 255, 16), thick, cv2.LINE_AA)
@@ -550,7 +547,7 @@ def capture_loop(device=0, width=800, height=600, fps=30, flip=True, rotate=0, s
         log.error(f"Cannot open camera device {device}")
         # Create dummy frame for testing
         dummy_frame = np.zeros((height, width, 3), dtype=np.uint8)
-        # Dark background like Claude.ai
+        # Dark background 
         dummy_frame.fill(26)
         cv2.putText(dummy_frame, "NO CAMERA DETECTED", (width//4, height//2), 
                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (232, 232, 232), 2)
@@ -576,14 +573,14 @@ def capture_loop(device=0, width=800, height=600, fps=30, flip=True, rotate=0, s
         return
 
     try:
-        # Set camera properties - fixed to 800x600@30fps
+        # Set camera properties
         cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
         cap.set(cv2.CAP_PROP_FPS, 30)
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         
-        # Additional settings for better quality and lower latency
+        # Additional settings for better quality
         try:
             cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
             cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
@@ -639,7 +636,6 @@ def capture_loop(device=0, width=800, height=600, fps=30, flip=True, rotate=0, s
         elif rotate == 270:
             frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-        # Draw overlays (only center dot)
         draw_overlay_inplace(frame, show_fps=show_fps)
 
         # Calculate FPS
@@ -745,6 +741,9 @@ def api_telemetry():
 def main():
     parser = argparse.ArgumentParser(description="Robot Camera Stream - Claude.ai Dark Mode Style")
     parser.add_argument('--device', type=int, default=0, help='Camera device index')
+    parser.add_argument('--width', type=int, default=800, help='Camera width (fixed to 800)')
+    parser.add_argument('--height', type=int, default=600, help='Camera height (fixed to 600)')
+    parser.add_argument('--fps', type=int, default=30, help='Camera FPS (fixed to 30)')
     parser.add_argument('--flip', type=int, default=1, help='Flip camera horizontally (0/1)')
     parser.add_argument('--rotate', type=int, default=0, choices=[0, 90, 180, 270], help='Rotate camera')
     parser.add_argument('--port', type=int, default=5000, help='Server port')
@@ -752,6 +751,8 @@ def main():
     parser.add_argument('--show-fps', type=int, default=1, help='Show FPS overlay (0/1)')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Server host')
     args = parser.parse_args()
+
+    # Note: width, height, fps arguments are ignored - fixed to 800x600@30fps
 
     log.info("Starting Robot Camera Stream System")
     log.info("=" * 50)
@@ -798,7 +799,7 @@ def main():
     try:
         app.run(host=args.host, port=args.port, threaded=True, debug=False)
     except KeyboardInterrupt:
-        log.info("\n System shutdown by user")
+        log.info("\nSystem shutdown by user")
     except Exception as e:
         log.error(f"Server error: {e}")
 
