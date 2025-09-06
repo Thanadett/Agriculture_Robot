@@ -43,7 +43,7 @@ class JoystickTeleop(Node):
 
         # buttons  (RB = turbo, A = emergency stop)
         self.declare_parameter('btn_turbo', 5)          # RB
-        self.declare_parameter('btn_emergency_stop', 0)  # A
+        self.declare_parameter('btn_emergency_stop', 4) # LB
 
         # tuning
         self.declare_parameter('max_linear', 255.0)       # m/s

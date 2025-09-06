@@ -40,7 +40,7 @@ def generate_launch_description():
                 'ramp_rate_angular': 250.0,
                 'joy_timeout_ms': 800,
                 'btn_turbo': 5,
-                'btn_emergency_stop': 0,
+                'btn_emergency_stop': 4,
                 'axis_left_y': 1,
                 'axis_right_x': 3
             }],
