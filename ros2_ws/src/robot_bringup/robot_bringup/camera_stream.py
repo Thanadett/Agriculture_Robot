@@ -231,12 +231,21 @@ def toggle_overlay(overlay_type):
 # --- Stub API for future telemetry (encoders/IMU) ---
 @app.route("/api/telemetry")
 def api_telemetry():
+    global latest_bgr
+    h, w = 0, 0
+    cx, cy = 0, 0
+    if latest_bgr is not None:
+        h, w = latest_bgr.shape[:2]
+        cx, cy = w//2, h//2
     return jsonify({
         "t": time.time(),
+        "fps": fps_ema,
+        "center": {"x": cx, "y": cy},
         "encoders": {"fl": 0, "fr": 0, "rl": 0, "rr": 0},
         "imu": {"roll": 0.0, "pitch": 0.0, "yaw": 0.0},
         "notes": "stub data; replace with real sensors later"
     })
+
 
 # ---------------- Main ----------------
 def main():

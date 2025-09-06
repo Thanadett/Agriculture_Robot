@@ -1,35 +1,33 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>STREAM ACTIVE</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="UTF-8">
+  <title>Robot Camera Stream</title>
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <h1>STREAM ACTIVE</h1>
-  <main class="container">
-    <img src="/video" class="camera-frame" alt="camera stream">
-    <div class="controls card">
-      <button id="btn-grid">Toggle Grid</button>
-      <button id="btn-center">Toggle Center Dot</button>
+  <h1>Robot Camera Stream</h1>
+
+  <div id="video-container">
+    <img id="video-stream" src="/video" alt="Camera Stream">
+    <div id="overlay">
+      FPS: <span id="fps">0</span> |
+      Center: (<span id="cx">0</span>, <span id="cy">0</span>)
     </div>
-    <section class="info card">
-      <strong>Status:</strong> <span id="status">All systems operational</span>
-    </section>
-
-    <section class="telemetry card">
-      <h2>Telemetry (stub)</h2>
-      <pre id="telemetry">— not fetching —</pre>
-      <!-- ในอนาคต: สลับไปใช้ WebSocket/SSE ได้ -->
-    </section>
-  </main>
-
-  <div class="status-bar">
-    <span id="timestamp"></span>
-    <span>Stream: LIVE</span>
   </div>
 
-  <script src="{{ url_for('static', filename='app.js') }}"></script>
+  <div id="controls">
+    <button id="btn-grid">Toggle Grid</button>
+    <button id="btn-center">Toggle Center Dot</button>
+    <span id="status"></span>
+  </div>
+
+  <div>
+    <h2>Telemetry</h2>
+    <pre id="telemetry"></pre>
+    <div>Timestamp: <span id="timestamp"></span></div>
+  </div>
+
+  <script src="/static/app.js" defer></script>
 </body>
 </html>
