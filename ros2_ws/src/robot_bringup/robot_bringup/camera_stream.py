@@ -270,7 +270,7 @@ def main():
     log.info("Camera system ready!")
 
     try:
-        app.run(host="0.0.0.0", port=args.port, threaded=True, debug=True)
+        app.run(host="0.0.0.0", port=args.port, threaded=True, debug=False)
     except KeyboardInterrupt:
         log.info("System shutdown by user")
     except Exception as e:
