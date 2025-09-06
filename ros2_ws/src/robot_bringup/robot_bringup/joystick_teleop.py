@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ROS2 Joystick → /cmd_vel (Two-stick; RB = instant max on linear; B = emergency stop)
+# ROS2 Joystick → /cmd_vel (Two-stick; B = instant max on both axes; A = emergency stop)
 # Left stick Y  -> linear.x (เดินหน้า/ถอย)
 # Right stick X -> angular.z (เลี้ยวซ้าย/ขวา)
 
@@ -34,25 +34,26 @@ class JoystickTeleop(Node):
         self.declare_parameter('cmd_vel_topic', '/cmd_vel')
 
         # two-stick mapping
-        self.declare_parameter('axis_left_y', 1)      # throttle (เดินหน้า/ถอย)
+        # throttle (เดินหน้า/ถอย)
+        self.declare_parameter('axis_left_y', 1)
         # steering (เลี้ยวซ้าย/ขวา)
         self.declare_parameter('axis_right_x', 3)
         self.declare_parameter('invert_left_y', 1.0)    # 1 หรือ -1
         self.declare_parameter('invert_right_x', 1.0)   # 1 หรือ -1
 
-        # buttons
-        self.declare_parameter('btn_turbo', 5)             # RB = instant max
-        self.declare_parameter('btn_emergency_stop', 1)    # B = emergency stop
+        # buttons  (B = turbo, A = emergency stop)
+        self.declare_parameter('btn_turbo', 1)          # B
+        self.declare_parameter('btn_emergency_stop', 0)  # A
 
-        # tuning (set defaults to your hardware/terrain)
-        self.declare_parameter('max_linear', 1.0)       # m/s
-        self.declare_parameter('max_angular', 10.0)     # rad/s
+        # tuning
+        self.declare_parameter('max_linear', 255.0)       # m/s
+        self.declare_parameter('max_angular', 255.0)     # rad/s
         self.declare_parameter('deadzone', 0.12)
-        self.declare_parameter('expo_linear', 0.30)
-        self.declare_parameter('expo_angular', 0.35)
+        self.declare_parameter('expo_linear', 0.50)
+        self.declare_parameter('expo_angular', 0.55)
 
-        self.declare_parameter('ramp_rate_linear', 3.0)    # [1/s]
-        self.declare_parameter('ramp_rate_angular', 8.0)   # [1/s]
+        self.declare_parameter('ramp_rate_linear', 10.0)    # [1/s]
+        self.declare_parameter('ramp_rate_angular', 10.0)   # [1/s]
         self.declare_parameter('joy_timeout_ms', 2000)
 
         # ---------- Read params ----------
@@ -100,8 +101,8 @@ class JoystickTeleop(Node):
 
         self.get_logger().info(
             f'Joystick two-stick started: joy={joy_topic} -> cmd={cmd_vel_topic} | '
-            f'max_linear={self.max_lin:.3f} m/s, max_angular={self.max_ang:.2f} rad/s '
-            f'| RB=instant MAX (linear only), B=E-STOP'
+            f'max_linear={self.max_lin:.3f} m/s, max_angular={self.max_ang:.2f} rad/s | '
+            f'B=instant MAX (linear & angular), A=E-STOP'
         )
 
     # -------- helpers --------
@@ -121,7 +122,7 @@ class JoystickTeleop(Node):
         now = time.monotonic()
         self.last_joy_time = now
 
-        # Emergency Stop (B) → หยุดทันที
+        # Emergency Stop (A) → หยุดทันที
         if self._btn(msg, self.btn_estop):
             self.v_target = 0.0
             self.w_target = 0.0
@@ -140,9 +141,10 @@ class JoystickTeleop(Node):
         v_norm = lin_in * self.max_lin
         w_norm = ang_in * self.max_ang
 
-        # RB = instant max (linear only)
+        # B = instant max (both axes)
         self.turbo_active = bool(self._btn(msg, self.btn_turbo))
         if self.turbo_active:
+            # ถ้าแกนเป็น 0 → คง 0 (ไม่บังคับให้เคลื่อนเอง)
             self.v_target = (math.copysign(self.max_lin, lin_in)
                              if abs(lin_in) > 0.0 else 0.0)
             self.w_target = (math.copysign(self.max_ang, ang_in)
@@ -164,12 +166,11 @@ class JoystickTeleop(Node):
             self.turbo_active = False
 
         if self.turbo_active:
-            self.cur_v = self.v_target  # linear instant
-            # angular ramp
-            max_step_w = max(1e-6, self.ramp_ang * dt)
-            dw = max(-max_step_w, min(max_step_w, self.w_target - self.cur_w))
-            self.cur_w += dw
+            # instant ทั้งสองแกน
+            self.cur_v = self.v_target
+            self.cur_w = self.w_target
         else:
+            # ramp นุ่มนวลตอนปกติ
             max_step_v = max(1e-6, self.ramp_lin * dt)
             max_step_w = max(1e-6, self.ramp_ang * dt)
             dv = max(-max_step_v, min(max_step_v, self.v_target - self.cur_v))
