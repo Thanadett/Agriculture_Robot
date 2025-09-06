@@ -1,280 +1,282 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import argparse
 import threading
 import time
+import logging
 import cv2
 import numpy as np
-from flask import Flask, Response
-import logging
+from flask import Flask, Response, render_template, jsonify
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# ---------------- Logging ----------------
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+log = logging.getLogger("lowlag-stream")
 
+# ---------------- Flask ----------------
 app = Flask(__name__)
 
-# Global variables
-latest_frame = None
-frame_lock = threading.Lock()
-fps_counter = 0
-fps_display = 0
-fps_lock = threading.Lock()
-last_fps_time = time.time()
+# ---------------- Globals ----------------
+latest_jpeg = None
+jpeg_lock = threading.Lock()
+new_frame_event = threading.Event()
 
-# Targeting system variables
+latest_bgr = None
+bgr_lock = threading.Lock()
+
 show_grid = True
 show_center_dot = True
-grid_color = (100, 100, 100)  # Gray
-center_dot_color = (0, 0, 255)  # Red
+grid_color = (100, 100, 100)    # BGR
+center_dot_color = (0, 0, 255)  # BGR
 
-def fps_calculator():
-    """Calculate and update FPS display"""
-    global fps_counter, fps_display, last_fps_time
-    
-    while True:
-        time.sleep(1.0)
-        with fps_lock:
-            current_time = time.time()
-            time_diff = current_time - last_fps_time
-            fps_display = fps_counter / time_diff if time_diff > 0 else 0
-            fps_counter = 0
-            last_fps_time = current_time
+fps_ema = 0.0
+last_tick = time.monotonic()
 
-def draw_targeting_overlay(frame):
-    """Draw targeting overlay on frame"""
-    global show_grid, show_center_dot
-    
-    height, width = frame.shape[:2]
-    center_x, center_y = width // 2, height // 2
-    
+_grid_cache = {"shape": None, "mask": None}
+
+# ---------------- Try TurboJPEG ----------------
+try:
+    from turbojpeg import TurboJPEG, TJPF_BGR, TJSAMP_420
+    _jpeg = TurboJPEG()
+    def encode_jpeg(img_bgr, quality=85):
+        return _jpeg.encode(img_bgr, quality=quality, pixel_format=TJPF_BGR, jpeg_subsample=TJSAMP_420)
+    log.info("TurboJPEG enabled")
+except Exception:
+    _jpeg = None
+    def encode_jpeg(img_bgr, quality=85):
+        params = [int(cv2.IMWRITE_JPEG_QUALITY), int(quality), int(cv2.IMWRITE_JPEG_OPTIMIZE), 1]
+        ok, buf = cv2.imencode(".jpg", img_bgr, params)
+        if not ok:
+            raise RuntimeError("cv2.imencode failed")
+        return buf.tobytes()
+    log.info("TurboJPEG not available, falling back to cv2.imencode")
+
+# ---------------- Overlay helpers ----------------
+def _ensure_grid_mask(shape):
+    global _grid_cache
+    if _grid_cache["shape"] == shape and _grid_cache["mask"] is not None:
+        return _grid_cache["mask"]
+    h, w = shape[:2]
+    mask = np.zeros((h, w, 3), dtype=np.uint8)
+    for i in (1, 2):
+        x = (w * i) // 3
+        cv2.line(mask, (x, 0), (x, h), grid_color, 1)
+        y = (h * i) // 3
+        cv2.line(mask, (0, y), (w, y), grid_color, 1)
+    _grid_cache = {"shape": shape, "mask": mask}
+    return mask
+
+def draw_overlay_inplace(frame_bgr, show_fps=True):
+    global fps_ema
+    h, w = frame_bgr.shape[:2]
+    cx, cy = w // 2, h // 2
+    # grid
     if show_grid:
-        for i in range(1, 3):
-            x = width * i // 3
-            cv2.line(frame, (x, 0), (x, height), grid_color, 1)
-        for i in range(1, 3):
-            y = height * i // 3
-            cv2.line(frame, (0, y), (width, y), grid_color, 1)
-    
+        frame_bgr[:] = cv2.add(frame_bgr, _ensure_grid_mask(frame_bgr.shape))
+    # center dot
     if show_center_dot:
-        cv2.circle(frame, (center_x, center_y), 4, center_dot_color, -1, cv2.LINE_AA)
-    
-    return frame
+        cv2.circle(frame_bgr, (cx, cy), 4, center_dot_color, -1, cv2.LINE_AA)
+    # fps
+    if show_fps:
+        text = f"FPS: {fps_ema:.1f}"
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        scale = 0.6
+        thick = 2
+        size = cv2.getTextSize(text, font, scale, thick)[0]
+        cv2.rectangle(frame_bgr, (10, 10), (10 + size[0] + 10, 10 + size[1] + 10), (0, 0, 0), -1)
+        cv2.putText(frame_bgr, text, (15, 10 + size[1] + 0), font, scale, (0, 255, 0), thick, cv2.LINE_AA)
+    # coords
+    coord_text = f"Center: ({cx},{cy})"
+    csize = cv2.getTextSize(coord_text, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)[0]
+    cv2.rectangle(frame_bgr, (w - csize[0] - 15, 10), (w - 5, 10 + csize[1] + 8), (0, 0, 0), -1)
+    cv2.putText(frame_bgr, coord_text, (w - csize[0] - 10, 10 + csize[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
 
-def capture_loop(device=0, width=800, height=600, fps=30, flip=True, rotate=0, show_fps=True):
-    global latest_frame, fps_counter
+# ---------------- Capture Thread ----------------
+def capture_loop(device=0, width=800, height=600, fps=30, flip=True, rotate=0, show_fps=True, jpeg_quality=85):
+    global latest_jpeg, latest_bgr, fps_ema, last_tick
+    try:
+        cv2.setNumThreads(1)
+    except Exception:
+        pass
+
     cap = None
     for backend in [cv2.CAP_V4L2, cv2.CAP_ANY]:
         try:
             cap = cv2.VideoCapture(device, backend)
             if cap.isOpened():
-                logger.info(f"Camera opened successfully with backend: {backend}")
+                log.info(f"Camera opened with backend: {backend}")
                 break
         except Exception as e:
-            logger.warning(f"Failed to open camera with backend {backend}: {e}")
-    
+            log.warning(f"Open camera failed for backend {backend}: {e}")
+
     if cap is None or not cap.isOpened():
-        logger.error(f"Cannot open camera device {device}")
+        log.error(f"Cannot open camera device {device}")
         return
-    
+
     try:
-        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M','J','P','G'))
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         cap.set(cv2.CAP_PROP_FPS, fps)
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
         cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
-        logger.info(f"Camera configured - Requested: {width}x{height}@{fps}fps")
-        logger.info(f"Camera actual: {int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))}x{int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))}@{cap.get(cv2.CAP_PROP_FPS):.1f}fps")
+        cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
     except Exception as e:
-        logger.warning(f"Some camera properties could not be set: {e}")
-    
-    try:
-        camera_fps = cap.get(cv2.CAP_PROP_FPS)
-        target_frame_time = 1.0 / min(camera_fps, fps) if camera_fps > 0 else 1.0 / fps
-    except:
-        target_frame_time = 1.0 / fps
-    
-    last_frame_time = time.time()
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = 0.6
-    font_thickness = 2
-    retry_count = 0
-    max_retries = 5
-    
-    while True:
-        try:
-            ret, frame = cap.read()
-            if not ret:
-                retry_count += 1
-                logger.warning(f"Failed to read frame, retry {retry_count}/{max_retries}")
-                if retry_count >= max_retries:
-                    logger.error("Too many failed frame reads, restarting capture...")
-                    cap.release()
-                    time.sleep(1)
-                    cap = cv2.VideoCapture(device, cv2.CAP_V4L2)
-                    retry_count = 0
-                time.sleep(0.1)
-                continue
-            retry_count = 0
-            
-            if flip:
-                frame = cv2.flip(frame, 1)
-            if rotate == 90:
-                frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
-            elif rotate == 180:
-                frame = cv2.rotate(frame, cv2.ROTATE_180)
-            elif rotate == 270:
-                frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
-            
-            frame = draw_targeting_overlay(frame)
-            
-            if show_fps:
-                with fps_lock:
-                    fps_text = f"FPS: {fps_display:.1f}"
-                text_size = cv2.getTextSize(fps_text, font, font_scale, font_thickness)[0]
-                cv2.rectangle(frame, (10,10), (text_size[0]+20, text_size[1]+20), (0,0,0), -1)
-                cv2.putText(frame, fps_text, (15,30), font, font_scale, (0,255,0), font_thickness)
-            
-            height, width = frame.shape[:2]
-            coord_text = f"Center: ({width//2},{height//2})"
-            coord_size = cv2.getTextSize(coord_text, font, 0.4, 1)[0]
-            cv2.rectangle(frame, (width-coord_size[0]-20,10), (width-5,coord_size[1]+20), (0,0,0), -1)
-            cv2.putText(frame, coord_text, (width-coord_size[0]-15,25), font, 0.4, (255,255,255), 1)
-            
-            with frame_lock:
-                latest_frame = frame.copy()
-            
-            with fps_lock:
-                fps_counter += 1
-            
-            elapsed = time.time() - last_frame_time
-            sleep_time = target_frame_time - elapsed
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-            last_frame_time = time.time()
-            
-        except Exception as e:
-            logger.error(f"Error in capture loop: {e}")
-            time.sleep(0.1)
-    cap.release()
+        log.warning(f"Some camera properties could not be set: {e}")
 
-def mjpeg_stream(jpeg_quality=85):
-    global latest_frame
-    while True:
-        try:
-            with frame_lock:
-                if latest_frame is None:
-                    time.sleep(0.01)
-                    continue
-                frame = latest_frame.copy()
-            encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality, int(cv2.IMWRITE_JPEG_OPTIMIZE), 1]
-            ret, buffer = cv2.imencode('.jpg', frame, encode_params)
-            if not ret:
-                logger.warning("Failed to encode frame")
-                continue
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
-        except Exception as e:
-            logger.error(f"Error in MJPEG stream: {e}")
-            time.sleep(0.1)
+    actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    actual_fps = cap.get(cv2.CAP_PROP_FPS) or fps
+    log.info(f"Camera requested: {width}x{height}@{fps} | actual: {actual_w}x{actual_h}@{actual_fps:.1f}")
 
-@app.route('/video')
+    target_frame_time = 1.0 / max(1.0, min(actual_fps, float(fps)))
+    retry = 0
+    max_retry = 5
+
+    while True:
+        tick0 = time.monotonic()
+        ret, frame = cap.read()
+        if not ret:
+            retry += 1
+            log.warning(f"read() failed {retry}/{max_retry}")
+            if retry >= max_retry:
+                log.error("Too many read() failures, reopening camera ...")
+                cap.release()
+                time.sleep(0.5)
+                cap = cv2.VideoCapture(device, cv2.CAP_V4L2)
+                retry = 0
+            time.sleep(0.02)
+            continue
+
+        if flip:
+            frame = cv2.flip(frame, 1)
+        if rotate == 90:
+            frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        elif rotate == 180:
+            frame = cv2.rotate(frame, cv2.ROTATE_180)
+        elif rotate == 270:
+            frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+        draw_overlay_inplace(frame, show_fps=show_fps)
+
+        now = time.monotonic()
+        dt = now - last_tick
+        if dt > 0:
+            inst = 1.0 / dt
+            fps_ema = inst if fps_ema == 0 else (0.2 * inst + 0.8 * fps_ema)
+        last_tick = now
+
+        with bgr_lock:
+            latest_bgr = frame
+
+        try:
+            jpeg_bytes = encode_jpeg(frame, quality=jpeg_quality)
+        except Exception as e:
+            log.error(f"JPEG encode failed: {e}")
+            time.sleep(0.01)
+            continue
+
+        with jpeg_lock:
+            latest_jpeg = jpeg_bytes
+            new_frame_event.set()
+            new_frame_event.clear()
+
+        elapsed = time.monotonic() - tick0
+        sleep_time = target_frame_time - elapsed
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+
+# ---------------- MJPEG stream ----------------
+def mjpeg_generator():
+    boundary = b'--frame\\r\\nContent-Type: image/jpeg\\r\\n\\r\\n'
+    while True:
+        if not new_frame_event.wait(timeout=1.0):
+            pass
+        with jpeg_lock:
+            buf = latest_jpeg
+        if buf is None:
+            time.sleep(0.01)
+            continue
+        yield boundary + buf + b'\\r\\n'
+
+# ---------------- Routes ----------------
+@app.route("/")
+def index():
+    # แยกไฟล์หน้าเว็บไปที่ templates/index.html และ static/app.js, static/style.css
+    return render_template("index.html")
+
+@app.route("/video")
 def video():
-    return Response(mjpeg_stream(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(mjpeg_generator(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-@app.route('/toggle/<overlay_type>')
+@app.route("/toggle/<overlay_type>")
 def toggle_overlay(overlay_type):
     global show_grid, show_center_dot
     if overlay_type == 'grid':
         show_grid = not show_grid
-        status = "enabled" if show_grid else "disabled"
-        return f"Grid {status}"
+        return f"Grid {'enabled' if show_grid else 'disabled'}"
     elif overlay_type == 'center':
         show_center_dot = not show_center_dot
-        status = "enabled" if show_center_dot else "disabled"
-        return f"Center dot {status}"
+        return f"Center dot {'enabled' if show_center_dot else 'disabled'}"
     return "Invalid overlay type"
 
-@app.route('/')
-def index():
-    return '''
-<!DOCTYPE html>
-<html>
-<head>
-<title> STREAM ACTIVE </title>
-<style>
-html,body{height:100%;margin:0;font-family:'Segoe UI',sans-serif;background:#d3d3d3;color:#121212;display:flex;flex-direction:column;align-items:center;}
-h1{color:#007f00;text-shadow:0 0 8px #007f00;margin:15px 0;}
-.camera-frame{border:2px solid #444;border-radius:10px;max-width:90vw;max-height:65vh;box-shadow:0 0 15px rgba(0,0,0,0.3);}
-.controls{margin-top:15px;padding:10px 15px;background:rgba(255,255,255,0.8);border-radius:8px;border:1px solid #888;}
-button{background:#eee;color:#121212;border:1px solid #888;padding:6px 12px;margin:0 4px;border-radius:4px;cursor:pointer;transition:0.2s;}
-button:hover{background:#bbb;color:#000;}
-.info{margin-top:12px;padding:8px 15px;background:rgba(255,255,255,0.7);border-radius:6px;border:1px solid #aaa;font-size:0.9em;color:#121212;}
-.status-bar{position:fixed;bottom:10px;right:10px;background:rgba(200,200,200,0.8);padding:6px 12px;border-radius:4px;border:1px solid #888;color:#121212;font-size:0.85em;display:flex;gap:15px;}
-</style>
-<script>
-function toggleOverlay(t){fetch('/toggle/'+t).then(r=>r.text()).then(d=>{document.getElementById('status').innerText=d});}
-setInterval(()=>{document.getElementById('timestamp').innerText=new Date().toLocaleTimeString();},1000);
-</script>
-</head>
-<body>
-<h1> STREAM ACTIVE </h1>
-<img src="/video" class="camera-frame">
-<div class="controls">
-<button onclick="toggleOverlay('grid')">Toggle Grid</button>
-<button onclick="toggleOverlay('center')">Toggle Center Dot</button>
-</div>
-<div class="info">
-<strong>Status:</strong> <span id="status">All systems operational</span>
-</div>
-<div class="status-bar">
-<span><span id="timestamp"></span></span>
-<span>Stream: LIVE</span>
-</div>
-</body>
-</html>
-'''
+# --- Stub API for future telemetry (encoders/IMU) ---
+@app.route("/api/telemetry")
+def api_telemetry():
+    # โครงสร้างตัวอย่างสำหรับอนาคต
+    return jsonify({
+        "t": time.time(),
+        "encoders": {"fl": 0, "fr": 0, "rl": 0, "rr": 0},
+        "imu": {"roll": 0.0, "pitch": 0.0, "yaw": 0.0},
+        "notes": "stub data; replace with real sensors later"
+    })
 
+# ---------------- Main ----------------
 def main():
-    parser = argparse.ArgumentParser(description='Camera Stream with Targeting System')
+    parser = argparse.ArgumentParser(description="Low-latency MJPEG camera stream with overlay (templated UI)")
     parser.add_argument('--device', type=int, default=0)
     parser.add_argument('--width', type=int, default=800)
     parser.add_argument('--height', type=int, default=600)
     parser.add_argument('--fps', type=int, default=30)
     parser.add_argument('--flip', type=int, default=1)
-    parser.add_argument('--rotate', type=int, default=0, choices=[0,90,180,270])
+    parser.add_argument('--rotate', type=int, default=0, choices=[0, 90, 180, 270])
     parser.add_argument('--port', type=int, default=5000)
     parser.add_argument('--quality', type=int, default=85)
     parser.add_argument('--show-fps', type=int, default=1)
-    
     args = parser.parse_args()
-    
-    logger.info(" Starting Camera System")
-    logger.info(f" Server port: {args.port}")
-    logger.info(f" Camera settings: {args.width}x{args.height} @ {args.fps}fps")
-    
-    fps_thread = threading.Thread(target=fps_calculator, daemon=True)
-    fps_thread.start()
-    
-    capture_thread = threading.Thread(
+
+    log.info("Starting camera system (templated UI)")
+    log.info(f"Server port: {args.port}")
+    log.info(f"Camera settings: {args.width}x{args.height} @ {args.fps}fps | flip={bool(args.flip)} rotate={args.rotate}")
+
+    th_cap = threading.Thread(
         target=capture_loop,
-        kwargs={'device': args.device, 'width': args.width, 'height': args.height,
-                'fps': args.fps, 'flip': bool(args.flip), 'rotate': args.rotate,
-                'show_fps': bool(args.show_fps)},
+        kwargs=dict(
+            device=args.device,
+            width=args.width,
+            height=args.height,
+            fps=args.fps,
+            flip=bool(args.flip),
+            rotate=args.rotate,
+            show_fps=bool(args.show_fps),
+            jpeg_quality=args.quality,
+        ),
         daemon=True
     )
-    capture_thread.start()
-    
-    time.sleep(2)
-    logger.info("camera system ready!")
-    
+    th_cap.start()
+
+    for _ in range(100):
+        with jpeg_lock:
+            if latest_jpeg is not None:
+                break
+        time.sleep(0.02)
+    log.info("Camera system ready!")
+
     try:
-        app.run(host='0.0.0.0', port=args.port, threaded=True, debug=False)
+        app.run(host="0.0.0.0", port=args.port, threaded=True, debug=False)
     except KeyboardInterrupt:
-        logger.info(" System shutdown by user")
+        log.info("System shutdown by user")
     except Exception as e:
-        logger.error(f" Server error: {e}")
+        log.error(f"Server error: {e}")
 
 if __name__ == "__main__":
     main()

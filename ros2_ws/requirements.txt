@@ -2,13 +2,11 @@
 
 
 # Core runtime dependencies
-flask>=2.2
-opencv-python>=4.8
+Flask>=3.0
+opencv-python>=4.9
 pyserial>=3.5
+numpy>=1.26
+PyTurboJPEG>=1.7.6
 
 # Build tools
 setuptools>=65
-
-# Optional:
-# pytest
-# mypy
