@@ -340,11 +340,6 @@ HTML_TEMPLATE = """
                 
                 // Update overlay data
                 $("#fps").textContent = data.fps?.toFixed(1) || "0";
-                $("#cx").textContent = data.center?.x || "0";
-                $("#cy").textContent = data.center?.y || "0";
-                
-                // Update telemetry display
-                $("#telemetry").textContent = JSON.stringify(data, null, 2);
                 
                 // Reset error counter on success
                 telemetryErrors = 0;
@@ -365,8 +360,6 @@ HTML_TEMPLATE = """
                 } else {
                     errorMsg += e.message;
                 }
-                
-                $("#telemetry").textContent = errorMsg;
                 
                 // Update connection status
                 if (streamConnected) {
@@ -530,6 +523,11 @@ def capture_loop():
     """Camera capture loop using configuration from CONFIG global"""
     global latest_jpeg, latest_bgr, fps_ema, last_tick, CONFIG
     
+    # Initialize frame counting variables
+    frame_count = 0
+    fps_check_interval = 30  # Check FPS every 30 frames
+    start_time = time.monotonic()
+    
     # Get configuration values
     device = CONFIG['device']
     width = CONFIG['width']
@@ -634,6 +632,7 @@ def capture_loop():
             continue
         
         retry = 0  # Reset retry counter on successful read
+        frame_count += 1  # Increment frame counter
         
         # Performance monitoring every N frames
         if frame_count % fps_check_interval == 0:
