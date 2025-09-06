@@ -89,6 +89,7 @@ class JoystickTeleop(Node):
         # ---------- State ----------
         self.last_joy_time = 0.0
         self.turbo_active = False
+        self._btn_last_estop = False
 
         self.cur_v = 0.0
         self.cur_w = 0.0
@@ -120,12 +121,14 @@ class JoystickTeleop(Node):
         now = time.monotonic()
         self.last_joy_time = now
 
-        # Emergency Stop (A) → หยุดทันที
         if self._btn(msg, self.btn_estop):
             self.v_target = 0.0
             self.w_target = 0.0
             self.turbo_active = False
+            self._btn_last_estop = True
             return
+        else:
+            self._btn_last_estop = False
 
         # อ่านแกน
         ly = self._axis(msg, self.ax_ly) * self.inv_ly     # throttle
