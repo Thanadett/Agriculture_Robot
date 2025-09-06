@@ -635,6 +635,17 @@ def capture_loop():
         
         retry = 0  # Reset retry counter on successful read
         
+        # Performance monitoring every N frames
+        if frame_count % fps_check_interval == 0:
+            elapsed_time = time.monotonic() - start_time
+            measured_fps = frame_count / elapsed_time
+            log.debug(f"Performance check: {measured_fps:.1f} FPS over {frame_count} frames")
+            
+            # Reset counters periodically to avoid overflow
+            if frame_count >= 300:
+                frame_count = 0
+                start_time = time.monotonic()
+        
         # Ensure frame is the correct resolution
         if frame.shape[:2] != (height, width):
             frame = cv2.resize(frame, (width, height))
@@ -651,24 +662,26 @@ def capture_loop():
 
         draw_overlay_inplace(frame, show_fps=show_fps)
 
-        # Calculate FPS
+        # Calculate EMA FPS more smoothly
         now = time.monotonic()
         dt = now - last_tick
         if dt > 0:
             inst = 1.0 / dt
-            fps_ema = inst if fps_ema == 0 else (0.15 * inst + 0.85 * fps_ema)
+            # Use different smoothing factor based on FPS stability
+            alpha = 0.1 if abs(inst - fps_ema) < 5 else 0.2
+            fps_ema = inst if fps_ema == 0 else (alpha * inst + (1-alpha) * fps_ema)
         last_tick = now
 
         # Store latest BGR frame
         with bgr_lock:
             latest_bgr = frame.copy()
 
-        # Encode to JPEG
+        # Encode to JPEG with error handling
         try:
             jpeg_bytes = encode_jpeg(frame, quality=jpeg_quality)
         except Exception as e:
             log.error(f"JPEG encode failed: {e}")
-            time.sleep(0.01)
+            time.sleep(0.001)
             continue
 
         # Store latest JPEG
@@ -677,11 +690,16 @@ def capture_loop():
             new_frame_event.set()
             new_frame_event.clear()
 
-        # Frame rate limiting using configured FPS
+        # Adaptive frame rate limiting
         elapsed = time.monotonic() - tick0
         sleep_time = target_frame_time - elapsed
-        if sleep_time > 0:
+        
+        # Only sleep if we have significant time left
+        if sleep_time > 0.001:
             time.sleep(sleep_time)
+        elif sleep_time < -0.01:
+            # If we're running significantly behind, log it
+            log.debug(f"Frame processing taking too long: {elapsed:.3f}s (target: {target_frame_time:.3f}s)")
 
 # ---------------- MJPEG stream ----------------
 def mjpeg_generator():
