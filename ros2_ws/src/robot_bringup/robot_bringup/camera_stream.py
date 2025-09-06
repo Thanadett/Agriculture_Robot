@@ -13,7 +13,12 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger("lowlag-stream")
 
 # ---------------- Flask ----------------
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    template_folder=os.path.join(os.path.dirname(__file__), "templates"),
+    static_folder=os.path.join(os.path.dirname(__file__), "static")
+)
+
 
 # ---------------- Globals ----------------
 latest_jpeg = None
