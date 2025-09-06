@@ -375,8 +375,8 @@ HTML_TEMPLATE = """
         }
         
         // Start telemetry polling
-        const telemetryInterval = setInterval(fetchTelemetry, 500);
-        fetchTelemetry();
+        # const telemetryInterval = setInterval(fetchTelemetry, 500);
+        # fetchTelemetry();
         
         // Video stream handling
         const videoElement = $("#video-stream");
@@ -426,10 +426,6 @@ HTML_TEMPLATE = """
                 setInterval(fetchTelemetry, 500);
             }
         });
-        
-        // Initialize
-        console.log("Robot Camera Stream Interface Loaded");
-        console.log("Clean dark mode UI - Dynamic resolution support");
         
         // Set initial status
         $("#status-dot").className = "status-indicator status-loading";
