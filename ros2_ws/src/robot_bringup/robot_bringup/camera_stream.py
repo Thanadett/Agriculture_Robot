@@ -467,12 +467,12 @@ last_tick = time.monotonic()
 # Global variables to store configuration from command line
 CONFIG = {
     'device': 0,
-    'width': 640,
-    'height': 480,
+    'width': 1280,
+    'height': 720,
     'fps': 30,
     'port': 5000,
     'host': '0.0.0.0',
-    'quality': 90,
+    'quality': 85,
     'flip': True,
     'rotate': 0,
     'show_fps': True
@@ -790,7 +790,7 @@ def main():
     parser.add_argument('--flip', type=int, default=1, help='Flip camera horizontally (0/1)')
     parser.add_argument('--rotate', type=int, default=0, choices=[0, 90, 180, 270], help='Rotate camera')
     parser.add_argument('--port', type=int, default=5000, help='Server port')
-    parser.add_argument('--quality', type=int, default=90, help='JPEG quality (1-100)')
+    parser.add_argument('--quality', type=int, default=85,help='JPEG quality (1-100)')
     parser.add_argument('--show-fps', type=int, default=1, help='Show FPS overlay (0/1)')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Server host')
     args = parser.parse_args()
