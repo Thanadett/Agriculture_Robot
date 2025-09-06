@@ -473,7 +473,7 @@ CONFIG = {
     'port': 5000,
     'host': '0.0.0.0',
     'quality': 85,
-    'flip': True,
+    'flip': False,
     'rotate': 0,
     'show_fps': True
 }
@@ -787,7 +787,7 @@ def main():
     parser.add_argument('--width', type=int, help='Camera width')
     parser.add_argument('--height', type=int, help='Camera height')
     parser.add_argument('--fps', type=int, help='Camera FPS')
-    parser.add_argument('--flip', type=int, default=1, help='Flip camera horizontally (0/1)')
+    parser.add_argument('--flip', type=int, default=0, help='Flip camera horizontally (0/1)')
     parser.add_argument('--rotate', type=int, default=0, choices=[0, 90, 180, 270], help='Rotate camera')
     parser.add_argument('--port', type=int, default=5000, help='Server port')
     parser.add_argument('--quality', type=int, default=85,help='JPEG quality (1-100)')
