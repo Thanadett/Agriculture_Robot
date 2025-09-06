@@ -467,8 +467,8 @@ last_tick = time.monotonic()
 # Global variables to store configuration from command line
 CONFIG = {
     'device': 0,
-    'width': 1920,
-    'height': 1080,
+    'width': 1280,
+    'height': 720,
     'fps': 30,
     'port': 5000,
     'host': '0.0.0.0',
