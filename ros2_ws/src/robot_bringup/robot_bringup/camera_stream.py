@@ -463,9 +463,8 @@ new_frame_event = threading.Event()
 latest_bgr = None
 bgr_lock = threading.Lock()
 
-# Fixed settings - only center dot, no grid, no toggles
-show_grid = False  # Always disabled
-show_center_dot = True  # Always enabled
+show_grid = False  
+show_center_dot = True  
 grid_color = (100, 100, 100)    # BGR (not used)
 center_dot_color = (0, 0, 255)  # BGR - green center dot
 
@@ -710,13 +709,13 @@ def api_telemetry():
         "resolution": {"width": 800, "height": 600},
         "target_fps": 30,
         "overlays": {
-            "grid": False,  # Always disabled
-            "center_dot": True  # Always enabled
+            "grid": False, 
+            "center_dot": True
         },
         "camera_status": "active" if latest_bgr is not None else "inactive",
         "system": {
             "uptime": time.time(),
-            "ui_theme": "claude_dark",
+            "ui_theme": "dark",
             "quality": "optimized"
         },
         "encoders": {"fl": 0, "fr": 0, "rl": 0, "rr": 0},
@@ -725,11 +724,11 @@ def api_telemetry():
 
 # ---------------- Main ----------------
 def main():
-    parser = argparse.ArgumentParser(description="Robot Camera Stream - Claude.ai Dark Mode Style")
+    parser = argparse.ArgumentParser(description="Robot Camera Stream")
     parser.add_argument('--device', type=int, default=0, help='Camera device index')
-    parser.add_argument('--width', type=int, default=800, help='Camera width (fixed to 800)')
-    parser.add_argument('--height', type=int, default=600, help='Camera height (fixed to 600)')
-    parser.add_argument('--fps', type=int, default=30, help='Camera FPS (fixed to 30)')
+    parser.add_argument('--width', type=int, default=800, help='Camera width')
+    parser.add_argument('--height', type=int, default=600, help='Camera height')
+    parser.add_argument('--fps', type=int, default=30, help='Camera FPS')
     parser.add_argument('--flip', type=int, default=1, help='Flip camera horizontally (0/1)')
     parser.add_argument('--rotate', type=int, default=0, choices=[0, 90, 180, 270], help='Rotate camera')
     parser.add_argument('--port', type=int, default=5000, help='Server port')
@@ -774,7 +773,7 @@ def main():
                 break
         time.sleep(0.05)
         if i % 20 == 0:
-            log.info(f"   ⏳ Still waiting... ({i//20 + 1}/8)")
+            log.info(f"Still waiting... ({i//20 + 1}/8)")
     
     if latest_jpeg is not None:
         log.info("Camera system ready!")
