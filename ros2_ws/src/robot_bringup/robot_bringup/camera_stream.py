@@ -843,19 +843,23 @@ def main():
 
     # Wait for camera to initialize
     log.info("Initializing camera system...")
-    for i in range(150):  # Wait up to 7.5 seconds
+    initialization_success = False
+    
+    for i in range(200):  # Wait up to 10 seconds
         with jpeg_lock:
             if latest_jpeg is not None:
+                initialization_success = True
                 break
         time.sleep(0.05)
         if i % 20 == 0:
-            log.info(f"Still waiting... ({i//20 + 1}/8)")
+            log.info(f"Still waiting for camera... ({i//20 + 1}/10)")
     
-    if latest_jpeg is not None:
+    if initialization_success:
         log.info("Camera system ready!")
         log.info(f"Using configuration: {CONFIG['width']}x{CONFIG['height']}@{CONFIG['fps']}fps on device {CONFIG['device']}")
     else:
-        log.warning("Camera not detected, running with dummy feed")
+        log.warning("Camera not detected within timeout, but starting server anyway...")
+        log.warning("Server will show dummy feed until camera becomes available")
     
 
     try:
