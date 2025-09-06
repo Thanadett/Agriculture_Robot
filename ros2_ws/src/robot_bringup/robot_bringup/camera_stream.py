@@ -201,7 +201,6 @@ def mjpeg_generator():
 # ---------------- Routes ----------------
 @app.route("/")
 def index():
-    # แยกไฟล์หน้าเว็บไปที่ templates/index.html และ static/app.js, static/style.css
     return render_template("index.html")
 
 @app.route("/video")
@@ -222,7 +221,6 @@ def toggle_overlay(overlay_type):
 # --- Stub API for future telemetry (encoders/IMU) ---
 @app.route("/api/telemetry")
 def api_telemetry():
-    # โครงสร้างตัวอย่างสำหรับอนาคต
     return jsonify({
         "t": time.time(),
         "encoders": {"fl": 0, "fr": 0, "rl": 0, "rr": 0},
@@ -272,7 +270,7 @@ def main():
     log.info("Camera system ready!")
 
     try:
-        app.run(host="0.0.0.0", port=args.port, threaded=True, debug=False)
+        app.run(host="0.0.0.0", port=args.port, threaded=True, debug=True)
     except KeyboardInterrupt:
         log.info("System shutdown by user")
     except Exception as e:
