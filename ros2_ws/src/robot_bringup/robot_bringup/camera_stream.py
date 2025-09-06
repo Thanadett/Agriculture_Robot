@@ -46,11 +46,12 @@ HTML_TEMPLATE = """
         
         h1 { 
             margin-bottom: 30px; 
-            color: #f0f0f0;
+            color: orange;
             text-align: center;
-            font-size: 1.8rem;
-            font-weight: 500;
+            font-size: 3rem;
+            font-weight: 600;
             letter-spacing: -0.025em;
+            text-shadow: 1px 1px 6px rgba(0,0,0,0.7);
         }
         
         #video-container { 
@@ -257,7 +258,6 @@ HTML_TEMPLATE = """
         <div id="overlay">
             <span class="status-indicator status-connected" id="status-dot"></span>
             FPS: <span id="fps">0</span> | 
-            Center: (<span id="cx">0</span>, <span id="cy">0</span>)
         </div>
     </div>
     
@@ -275,11 +275,6 @@ HTML_TEMPLATE = """
             <span class="info-label">Resolution:</span>
             <span class="info-value">800×600 @ 30fps</span>
         </div>
-    </div>
-    
-    <div class="info-panel">
-        <h2>Live Telemetry</h2>
-        <pre id="telemetry">Loading telemetry data...</pre>
     </div>
 
     <script>
@@ -472,7 +467,7 @@ bgr_lock = threading.Lock()
 show_grid = False  # Always disabled
 show_center_dot = True  # Always enabled
 grid_color = (100, 100, 100)    # BGR (not used)
-center_dot_color = (0, 255, 127)  # BGR - green center dot
+center_dot_color = (0, 0, 255)  # BGR - green center dot
 
 fps_ema = 0.0
 last_tick = time.monotonic()
@@ -516,13 +511,6 @@ def draw_overlay_inplace(frame_bgr, show_fps=True):
         cv2.rectangle(frame_bgr, (12, 12), (12 + size[0] + 12, 12 + size[1] + 12), (127, 255, 16), 1)
         cv2.putText(frame_bgr, text, (18, 12 + size[1] + 3), font, scale, (127, 255, 16), thick, cv2.LINE_AA)
     
-    # Clean coordinates display
-    coord_text = f"Center: ({cx},{cy})"
-    csize = cv2.getTextSize(coord_text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
-    cv2.rectangle(frame_bgr, (w - csize[0] - 24, 12), (w - 12, 12 + csize[1] + 12), (26, 26, 26), -1)
-    cv2.rectangle(frame_bgr, (w - csize[0] - 24, 12), (w - 12, 12 + csize[1] + 12), (232, 232, 232), 1)
-    cv2.putText(frame_bgr, coord_text, (w - csize[0] - 18, 12 + csize[1] + 3), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (232, 232, 232), 1, cv2.LINE_AA)
-
 # ---------------- Capture Thread ----------------
 def capture_loop(device=0, width=800, height=600, fps=30, flip=True, rotate=0, show_fps=True, jpeg_quality=90):
     global latest_jpeg, latest_bgr, fps_ema, last_tick
@@ -719,7 +707,6 @@ def api_telemetry():
     return jsonify({
         "timestamp": time.time(),
         "fps": round(fps_ema, 1),
-        "center": {"x": cx, "y": cy},
         "resolution": {"width": 800, "height": 600},
         "target_fps": 30,
         "overlays": {
@@ -734,7 +721,6 @@ def api_telemetry():
         },
         "encoders": {"fl": 0, "fr": 0, "rl": 0, "rr": 0},
         "imu": {"roll": 0.0, "pitch": 0.0, "yaw": 0.0},
-        "notes": "Claude.ai dark mode - 800×600@30fps with center dot"
     })
 
 # ---------------- Main ----------------
