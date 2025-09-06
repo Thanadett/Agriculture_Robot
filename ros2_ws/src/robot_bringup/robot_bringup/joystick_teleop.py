@@ -52,8 +52,8 @@ class JoystickTeleop(Node):
         self.declare_parameter('expo_linear', 3.0)
         self.declare_parameter('expo_angular', 2.5)
 
-        self.declare_parameter('ramp_rate_linear', 500.0)   # [1/s]
-        self.declare_parameter('ramp_rate_angular', 500.0)  # [1/s]
+        self.declare_parameter('ramp_rate_linear', 250.0) 
+        self.declare_parameter('ramp_rate_angular', 250.0)
         self.declare_parameter('joy_timeout_ms', 800)
 
         # ---------- Read params ----------
