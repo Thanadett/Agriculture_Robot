@@ -16,7 +16,7 @@ log = logging.getLogger("lowlag-stream")
 # ---------------- Flask ----------------
 app = Flask(__name__)
 
-# ---------------- HTML Template (same as before) ----------------
+# ---------------- HTML Template ----------------
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -109,6 +109,20 @@ HTML_TEMPLATE = """
             font-size: 1rem;
             font-weight: 600;
             letter-spacing: -0.025em;
+        }
+        
+        #telemetry { 
+            background: rgba(16, 16, 16, 0.9);
+            color: #10a37f;
+            padding: 16px; 
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace; 
+            max-height: 300px; 
+            overflow-y: auto; 
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            border: 1px solid rgba(58, 58, 58, 0.3);
         }
         
         #timestamp {
@@ -209,6 +223,31 @@ HTML_TEMPLATE = """
                 padding: 20px;
             }
         }
+        
+        /* Scrollbar styling */
+        #telemetry::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #telemetry::-webkit-scrollbar-track {
+            background: rgba(26, 26, 26, 0.5);
+            border-radius: 3px;
+        }
+        
+        #telemetry::-webkit-scrollbar-thumb {
+            background: rgba(16, 163, 127, 0.6);
+            border-radius: 3px;
+        }
+        
+        #telemetry::-webkit-scrollbar-thumb:hover {
+            background: rgba(16, 163, 127, 0.8);
+        }
+        
+        /* Firefox scrollbar */
+        #telemetry {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(16, 163, 127, 0.6) rgba(26, 26, 26, 0.5);
+        }
     </style>
 </head>
 <body>
@@ -239,11 +278,14 @@ HTML_TEMPLATE = """
     </div>
 
     <script>
+        // Utility functions
         const $ = (sel) => document.querySelector(sel);
         
+        // Global state
         let streamConnected = false;
         let telemetryErrors = 0;
         
+        // Update timestamp every second
         function updateTimestamp() {
             try {
                 const now = new Date();
@@ -262,9 +304,11 @@ HTML_TEMPLATE = """
             }
         }
         
+        // Start timestamp updates
         setInterval(updateTimestamp, 1000);
         updateTimestamp();
         
+        // Update status indicator
         function updateStatusIndicator(connected) {
             const dot = $("#status-dot");
             const status = $("#stream-status");
@@ -278,6 +322,7 @@ HTML_TEMPLATE = """
             }
         }
         
+        // Telemetry fetching
         async function fetchTelemetry() {
             try {
                 const controller = new AbortController();
@@ -293,10 +338,13 @@ HTML_TEMPLATE = """
                 
                 const data = await r.json();
                 
+                // Update overlay data
                 $("#fps").textContent = data.fps?.toFixed(1) || "0";
                 
+                // Reset error counter on success
                 telemetryErrors = 0;
                 
+                // Update connection status
                 if (!streamConnected) {
                     streamConnected = true;
                     updateStatusIndicator(true);
@@ -305,21 +353,34 @@ HTML_TEMPLATE = """
             } catch (e) {
                 telemetryErrors++;
                 
+                let errorMsg = `Telemetry error (${telemetryErrors}): `;
+                
+                if (e.name === 'AbortError') {
+                    errorMsg += "Request timeout - server may be busy";
+                } else {
+                    errorMsg += e.message;
+                }
+                
+                // Update connection status
                 if (streamConnected) {
                     streamConnected = false;
                     updateStatusIndicator(false);
                 }
                 
+                // If too many errors, slow down polling
                 if (telemetryErrors > 5) {
                     await new Promise(resolve => setTimeout(resolve, 2000));
                 }
             }
         }
         
+        // Start telemetry polling
         const telemetryInterval = setInterval(fetchTelemetry, 500);
         fetchTelemetry();
         
+        // Video stream handling
         const videoElement = $("#video-stream");
+        const streamStatusEl = $("#stream-status");
         
         videoElement.addEventListener("load", function() {
             console.log("Video stream loaded successfully");
@@ -332,6 +393,7 @@ HTML_TEMPLATE = """
             streamConnected = false;
             updateStatusIndicator(false);
             
+            // Wait a bit before retrying
             setTimeout(() => {
                 const timestamp = new Date().getTime();
                 this.src = "/video?" + timestamp;
@@ -344,6 +406,7 @@ HTML_TEMPLATE = """
             updateStatusIndicator(false);
         });
         
+        // Check stream health periodically
         setInterval(() => {
             if (!streamConnected && telemetryErrors > 3) {
                 console.log("Attempting to reconnect video stream...");
@@ -352,6 +415,7 @@ HTML_TEMPLATE = """
             }
         }, 10000);
         
+        // Page visibility handling
         document.addEventListener("visibilitychange", function() {
             if (document.hidden) {
                 console.log("Page hidden, reducing update frequency");
@@ -363,15 +427,19 @@ HTML_TEMPLATE = """
             }
         });
         
+        // Initialize
         console.log("Robot Camera Stream Interface Loaded");
+        console.log("Clean dark mode UI - Dynamic resolution support");
         
+        // Set initial status
         $("#status-dot").className = "status-indicator status-loading";
         $("#stream-status").innerText = "Connecting...";
         
+        // Performance monitoring
         let frameCount = 0;
         setInterval(() => {
             frameCount++;
-            if (frameCount % 120 === 0) {
+            if (frameCount % 120 === 0) { // Every 120 intervals (60 seconds)
                 console.log(`Performance: ${frameCount} telemetry updates, Stream: ${streamConnected ? 'Connected' : 'Disconnected'}`);
             }
         }, 500);
@@ -388,8 +456,10 @@ new_frame_event = threading.Event()
 latest_bgr = None
 bgr_lock = threading.Lock()
 
+show_grid = False  
 show_center_dot = True  
-center_dot_color = (0, 255, 0)  # Green center dot
+grid_color = (100, 100, 100)    # BGR (not used)
+center_dot_color = (0, 0, 255)  # BGR - green center dot
 
 fps_ema = 0.0
 last_tick = time.monotonic()
@@ -397,12 +467,12 @@ last_tick = time.monotonic()
 # Global variables to store configuration from command line
 CONFIG = {
     'device': 0,
-    'width': 640,  # Lower default resolution for better performance
-    'height': 480,
+    'width': 1920,
+    'height': 1080,
     'fps': 30,
     'port': 5000,
     'host': '0.0.0.0',
-    'quality': 85,  # Slightly lower quality for speed
+    'quality': 90,
     'flip': True,
     'rotate': 0,
     'show_fps': True
@@ -414,40 +484,49 @@ try:
     _jpeg = TurboJPEG()
     def encode_jpeg(img_bgr, quality=85):
         return _jpeg.encode(img_bgr, quality=quality, pixel_format=TJPF_BGR, jpeg_subsample=TJSAMP_420)
-    log.info("TurboJPEG enabled for optimal performance")
+    log.info("TurboJPEG enabled")
 except Exception:
     _jpeg = None
     def encode_jpeg(img_bgr, quality=85):
-        # Optimized CV2 encoding parameters
-        params = [
-            int(cv2.IMWRITE_JPEG_QUALITY), int(quality),
-            int(cv2.IMWRITE_JPEG_OPTIMIZE), 1,
-            int(cv2.IMWRITE_JPEG_PROGRESSIVE), 1
-        ]
+        params = [int(cv2.IMWRITE_JPEG_QUALITY), int(quality), int(cv2.IMWRITE_JPEG_OPTIMIZE), 1]
         ok, buf = cv2.imencode(".jpg", img_bgr, params)
         if not ok:
             raise RuntimeError("cv2.imencode failed")
         return buf.tobytes()
-    log.info("Using optimized cv2.imencode")
+    log.info("TurboJPEG not available, falling back to cv2.imencode")
 
 # ---------------- Overlay helpers ----------------
 def draw_overlay_inplace(frame_bgr, show_fps=True):
-    """Minimal overlay drawing for maximum performance"""
+    """Draw overlay on frame using configuration from CONFIG global"""
     global fps_ema
+    h, w = frame_bgr.shape[:2]
+    cx, cy = w // 2, h // 2
     
     if show_center_dot:
-        h, w = frame_bgr.shape[:2]
-        cx, cy = w // 2, h // 2
-        cv2.circle(frame_bgr, (cx, cy), 3, center_dot_color, -1)
+        cv2.circle(frame_bgr, (cx, cy), 5, center_dot_color, -1, cv2.LINE_AA)
+        cv2.circle(frame_bgr, (cx, cy), 7, (255, 255, 255), 1, cv2.LINE_AA)
     
-    if show_fps and fps_ema > 0:
+    # Clean FPS overlay
+    if show_fps:
         text = f"FPS: {fps_ema:.1f}"
-        cv2.putText(frame_bgr, text, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-
-# ---------------- Optimized Capture Thread ----------------
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        scale = 0.6
+        thick = 2
+        size = cv2.getTextSize(text, font, scale, thick)[0]
+        # Dark background
+        cv2.rectangle(frame_bgr, (12, 12), (12 + size[0] + 12, 12 + size[1] + 12), (26, 26, 26), -1)
+        cv2.rectangle(frame_bgr, (12, 12), (12 + size[0] + 12, 12 + size[1] + 12), (127, 255, 16), 1)
+        cv2.putText(frame_bgr, text, (18, 12 + size[1] + 3), font, scale, (127, 255, 16), thick, cv2.LINE_AA)
+    
+# ---------------- Capture Thread ----------------
 def capture_loop():
-    """Highly optimized camera capture loop"""
+    """Camera capture loop using configuration from CONFIG global"""
     global latest_jpeg, latest_bgr, fps_ema, last_tick, CONFIG
+    
+    # Initialize frame counting variables
+    frame_count = 0
+    fps_check_interval = 30  # Check FPS every 30 frames
+    start_time = time.monotonic()
     
     # Get configuration values
     device = CONFIG['device']
@@ -459,177 +538,192 @@ def capture_loop():
     show_fps = CONFIG['show_fps']
     jpeg_quality = CONFIG['quality']
     
-    # Set OpenCV threading for optimal performance
-    cv2.setUseOptimized(True)
-    cv2.setNumThreads(2)  # Use 2 threads for better performance
-    
-    log.info(f"Attempting to open camera device {device}")
-    
-    # Try opening camera with optimal backend
+    try:
+        cv2.setNumThreads(1)
+    except Exception:
+        pass
+
     cap = None
-    for backend_name, backend in [("V4L2", cv2.CAP_V4L2), ("GSTREAMER", cv2.CAP_GSTREAMER), ("ANY", cv2.CAP_ANY)]:
+    # Try different backends
+    for backend in [cv2.CAP_V4L2, cv2.CAP_GSTREAMER, cv2.CAP_ANY]:
         try:
             cap = cv2.VideoCapture(device, backend)
             if cap.isOpened():
-                log.info(f"Camera opened successfully with {backend_name} backend")
+                log.info(f"Camera opened with backend: {backend}")
                 break
-            else:
-                cap.release()
         except Exception as e:
-            log.warning(f"Failed to open camera with {backend_name}: {e}")
-    
+            log.warning(f"Open camera failed for backend {backend}: {e}")
+
     if cap is None or not cap.isOpened():
         log.error(f"Cannot open camera device {device}")
+        # Create dummy frame for testing with configured dimensions
+        dummy_frame = np.zeros((height, width, 3), dtype=np.uint8)
+        # Dark background 
+        dummy_frame.fill(26)
+        cv2.putText(dummy_frame, "NO CAMERA DETECTED", (width//4, height//2), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 1.0, (232, 232, 232), 2)
+        cv2.putText(dummy_frame, f"Device: {device} | {width}x{height}@{fps}fps", (width//4, height//2 + 40), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (127, 255, 16), 2)
+        
+        while True:
+            frame_copy = dummy_frame.copy()
+            draw_overlay_inplace(frame_copy, show_fps=show_fps)
+            
+            with bgr_lock:
+                latest_bgr = frame_copy.copy()
+                
+            try:
+                jpeg_bytes = encode_jpeg(frame_copy, quality=jpeg_quality)
+                with jpeg_lock:
+                    latest_jpeg = jpeg_bytes
+                    new_frame_event.set()
+                    new_frame_event.clear()
+            except Exception as e:
+                log.error(f"JPEG encode failed: {e}")
+            time.sleep(1.0/fps)
         return
-    
-    # Force MJPEG format for maximum performance (from your v4l2 output)
-    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-    
-    # Set optimal camera properties
-    cap.set(cv2.CAP_PROP_FOURCC, fourcc)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-    cap.set(cv2.CAP_PROP_FPS, fps)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimal buffer for low latency
-    
-    # Performance optimizations
-    cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)  # Don't convert to RGB
-    
-    # Disable auto-adjustments for consistent performance
+
     try:
-        cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
-        cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)  # Manual exposure
-    except:
-        log.warning("Could not set manual focus/exposure")
-    
-    # Verify actual settings
+        # Set camera properties using configured values
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        cap.set(cv2.CAP_PROP_FPS, fps)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        
+        # Additional settings for better quality
+        try:
+            cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+            cap.set(cv2.CAP_PROP_EXPOSURE, -6)  # Lower exposure for less motion blur
+        except:
+            pass
+            
+    except Exception as e:
+        log.warning(f"Some camera properties could not be set: {e}")
+
     actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    actual_fps = cap.get(cv2.CAP_PROP_FPS)
-    actual_fourcc = int(cap.get(cv2.CAP_PROP_FOURCC))
-    
-    # Convert fourcc back to string
-    fourcc_str = "".join([chr((actual_fourcc >> 8 * i) & 0xFF) for i in range(4)])
-    
-    log.info(f"Camera configured: {actual_w}x{actual_h}@{actual_fps:.1f}fps, format: {fourcc_str}")
-    
-    # Performance tracking
-    frame_count = 0
-    last_fps_check = time.monotonic()
+    actual_fps = cap.get(cv2.CAP_PROP_FPS) or fps
+    log.info(f"Camera settings: {width}x{height}@{fps}fps | actual: {actual_w}x{actual_h}@{actual_fps:.1f}")
+
     target_frame_time = 1.0 / fps
-    
-    # Main capture loop
+    retry = 0
+    max_retry = 5
+
     while True:
-        loop_start = time.monotonic()
-        
-        # Read frame
+        tick0 = time.monotonic()
         ret, frame = cap.read()
+        
         if not ret:
-            log.warning("Failed to read frame, attempting to recover...")
-            cap.release()
-            time.sleep(0.1)
-            cap = cv2.VideoCapture(device, cv2.CAP_V4L2)
-            if not cap.isOpened():
-                log.error("Failed to reopen camera")
-                break
+            retry += 1
+            log.warning(f"Camera read() failed {retry}/{max_retry}")
+            if retry >= max_retry:
+                log.error("Too many read() failures, attempting to reopen camera...")
+                cap.release()
+                time.sleep(1.0)
+                cap = cv2.VideoCapture(device, cv2.CAP_V4L2)
+                if not cap.isOpened():
+                    log.error("Failed to reopen camera")
+                    time.sleep(2)
+                    continue
+                retry = 0
+            time.sleep(0.05)
             continue
         
-        frame_count += 1
+        retry = 0  # Reset retry counter on successful read
+        frame_count += 1  # Increment frame counter
         
-        # Apply transformations only if needed
+        # Performance monitoring every N frames
+        if frame_count % fps_check_interval == 0:
+            elapsed_time = time.monotonic() - start_time
+            measured_fps = frame_count / elapsed_time
+            log.debug(f"Performance check: {measured_fps:.1f} FPS over {frame_count} frames")
+            
+            # Reset counters periodically to avoid overflow
+            if frame_count >= 300:
+                frame_count = 0
+                start_time = time.monotonic()
+        
+        # Ensure frame is the correct resolution
+        if frame.shape[:2] != (height, width):
+            frame = cv2.resize(frame, (width, height))
+        
+        # Apply transformations
         if flip:
             frame = cv2.flip(frame, 1)
-        
-        if rotate != 0:
-            if rotate == 90:
-                frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
-            elif rotate == 180:
-                frame = cv2.rotate(frame, cv2.ROTATE_180)
-            elif rotate == 270:
-                frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
-        
-        # Resize if needed (should not be needed with proper camera config)
-        if frame.shape[1] != width or frame.shape[0] != height:
-            frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
-        
-        # Add minimal overlay
+        if rotate == 90:
+            frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        elif rotate == 180:
+            frame = cv2.rotate(frame, cv2.ROTATE_180)
+        elif rotate == 270:
+            frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
         draw_overlay_inplace(frame, show_fps=show_fps)
-        
-        # Calculate FPS more efficiently
+
+        # Calculate EMA FPS more smoothly
         now = time.monotonic()
         dt = now - last_tick
         if dt > 0:
-            inst_fps = 1.0 / dt
-            # Faster EMA update
-            alpha = 0.2
-            fps_ema = inst_fps if fps_ema == 0 else (alpha * inst_fps + (1-alpha) * fps_ema)
+            inst = 1.0 / dt
+            # Use different smoothing factor based on FPS stability
+            alpha = 0.1 if abs(inst - fps_ema) < 5 else 0.2
+            fps_ema = inst if fps_ema == 0 else (alpha * inst + (1-alpha) * fps_ema)
         last_tick = now
-        
-        # Store frame for API access (non-blocking)
-        try:
-            if bgr_lock.acquire(blocking=False):
-                latest_bgr = frame.copy()
-                bgr_lock.release()
-        except:
-            pass
-        
-        # Encode JPEG
+
+        # Store latest BGR frame
+        with bgr_lock:
+            latest_bgr = frame.copy()
+
+        # Encode to JPEG with error handling
         try:
             jpeg_bytes = encode_jpeg(frame, quality=jpeg_quality)
         except Exception as e:
             log.error(f"JPEG encode failed: {e}")
+            time.sleep(0.001)
             continue
-        
-        # Store JPEG (non-blocking)
-        try:
-            if jpeg_lock.acquire(blocking=False):
-                latest_jpeg = jpeg_bytes
-                new_frame_event.set()
-                new_frame_event.clear()
-                jpeg_lock.release()
-        except:
-            pass
-        
-        # Performance monitoring
-        if frame_count % 60 == 0:  # Every 60 frames
-            elapsed = now - last_fps_check
-            measured_fps = 60.0 / elapsed if elapsed > 0 else 0
-            log.info(f"Performance: {measured_fps:.1f} FPS (target: {fps}, measured FPS: {fps_ema:.1f})")
-            last_fps_check = now
-        
-        # Minimal frame rate control
-        elapsed = time.monotonic() - loop_start
-        if elapsed < target_frame_time:
-            sleep_time = target_frame_time - elapsed
-            if sleep_time > 0.001:  # Only sleep if significant time left
-                time.sleep(sleep_time)
-    
-    cap.release()
 
-# ---------------- Optimized MJPEG stream ----------------
-def mjpeg_generator():
-    """Optimized MJPEG stream generator"""
-    boundary = b'--frame\r\nContent-Type: image/jpeg\r\nContent-Length: '
-    
-    while True:
-        # Wait for new frame
-        new_frame_event.wait(timeout=1.0)
+        # Store latest JPEG
+        with jpeg_lock:
+            latest_jpeg = jpeg_bytes
+            new_frame_event.set()
+            new_frame_event.clear()
+
+        # Adaptive frame rate limiting
+        elapsed = time.monotonic() - tick0
+        sleep_time = target_frame_time - elapsed
         
+        # Only sleep if we have significant time left
+        if sleep_time > 0.001:
+            time.sleep(sleep_time)
+        elif sleep_time < -0.01:
+            # If we're running significantly behind, log it
+            log.debug(f"Frame processing taking too long: {elapsed:.3f}s (target: {target_frame_time:.3f}s)")
+
+# ---------------- MJPEG stream ----------------
+def mjpeg_generator():
+    """Generate MJPEG stream"""
+    boundary = b'--frame\r\nContent-Type: image/jpeg\r\n\r\n'
+    while True:
+        # Wait for new frame with timeout
+        if not new_frame_event.wait(timeout=2.0):
+            continue
+            
         with jpeg_lock:
             buf = latest_jpeg
             
         if buf is None:
-            time.sleep(0.001)
+            time.sleep(0.01)
             continue
-        
-        # Optimized response format
-        yield boundary + str(len(buf)).encode() + b'\r\n\r\n' + buf + b'\r\n'
+            
+        yield boundary + buf + b'\r\n'
 
 # ---------------- Routes ----------------
 @app.route("/")
 def index():
     """Main page with dynamic configuration"""
     global CONFIG
+    # Inject camera configuration into template
     template = HTML_TEMPLATE.replace("{{ width }}", str(CONFIG['width']))
     template = template.replace("{{ height }}", str(CONFIG['height']))
     template = template.replace("{{ fps }}", str(CONFIG['fps']))
@@ -637,7 +731,7 @@ def index():
 
 @app.route("/video")
 def video():
-    """Optimized video stream route"""
+    """Video stream route"""
     return Response(
         mjpeg_generator(), 
         mimetype='multipart/x-mixed-replace; boundary=frame',
@@ -645,47 +739,77 @@ def video():
             'Cache-Control': 'no-cache, no-store, must-revalidate',
             'Pragma': 'no-cache',
             'Expires': '0',
-            'Access-Control-Allow-Origin': '*',
-            'Connection': 'close'
+            'Access-Control-Allow-Origin': '*'
         }
     )
 
 @app.route("/api/telemetry")
 def api_telemetry():
-    """Fast telemetry API"""
+    """Telemetry API using dynamic configuration"""
     global latest_bgr, fps_ema, CONFIG
     
+    # Use configured resolution
     h, w = CONFIG['height'], CONFIG['width']
+    cx, cy = w//2, h//2
     
-    # Fast response without heavy processing
+    with bgr_lock:
+        if latest_bgr is not None:
+            h, w = latest_bgr.shape[:2]
+            cx, cy = w//2, h//2
+    
     return jsonify({
         "timestamp": time.time(),
         "fps": round(fps_ema, 1),
         "resolution": {"width": w, "height": h},
         "target_fps": CONFIG['fps'],
+        "configured_resolution": {"width": CONFIG['width'], "height": CONFIG['height']},
         "device": CONFIG['device'],
+        "overlays": {
+            "grid": False, 
+            "center_dot": True
+        },
         "camera_status": "active" if latest_bgr is not None else "inactive",
-        "performance": "optimized"
+        "system": {
+            "uptime": time.time(),
+            "ui_theme": "dark",
+            "quality": "optimized"
+        },
+        "encoders": {"fl": 0, "fr": 0, "rl": 0, "rr": 0},
+        "imu": {"roll": 0.0, "pitch": 0.0, "yaw": 0.0},
     })
 
 # ---------------- Main ----------------
 def main():
     global CONFIG
     
-    parser = argparse.ArgumentParser(description="Optimized Robot Camera Stream")
-    parser.add_argument('--device', type=int, default=0, help='Camera device index')
-    parser.add_argument('--width', type=int, default=640, help='Camera width')
-    parser.add_argument('--height', type=int, default=480, help='Camera height')
-    parser.add_argument('--fps', type=int, default=30, help='Camera FPS')
+    parser = argparse.ArgumentParser(description="Robot Camera Stream")
+    parser.add_argument('--device', type=int, help='Camera device index')
+    parser.add_argument('--width', type=int, help='Camera width')
+    parser.add_argument('--height', type=int, help='Camera height')
+    parser.add_argument('--fps', type=int, help='Camera FPS')
     parser.add_argument('--flip', type=int, default=1, help='Flip camera horizontally (0/1)')
     parser.add_argument('--rotate', type=int, default=0, choices=[0, 90, 180, 270], help='Rotate camera')
     parser.add_argument('--port', type=int, default=5000, help='Server port')
-    parser.add_argument('--quality', type=int, default=85, help='JPEG quality (1-100)')
+    parser.add_argument('--quality', type=int, default=90, help='JPEG quality (1-100)')
     parser.add_argument('--show-fps', type=int, default=1, help='Show FPS overlay (0/1)')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Server host')
     args = parser.parse_args()
 
-    # Update configuration
+    # Validate required arguments from launch file
+    if args.device is None:
+        log.error("--device is required from launch file")
+        return
+    if args.width is None:
+        log.error("--width is required from launch file")
+        return
+    if args.height is None:
+        log.error("--height is required from launch file")
+        return
+    if args.fps is None:
+        log.error("--fps is required from launch file")
+        return
+
+    # Store all configuration in global CONFIG
     CONFIG.update({
         'device': args.device,
         'width': args.width,
@@ -699,31 +823,45 @@ def main():
         'show_fps': bool(args.show_fps)
     })
 
-    log.info("Starting OPTIMIZED Robot Camera Stream System")
+    log.info("Starting Robot Camera Stream System")
     log.info("=" * 50)
     log.info(f"Server: http://{CONFIG['host']}:{CONFIG['port']}")
     log.info(f"Camera: {CONFIG['width']}×{CONFIG['height']}@{CONFIG['fps']}fps (device {CONFIG['device']})")
-    log.info(f"Quality: {CONFIG['quality']}% | Optimizations: MJPEG direct, minimal overlay")
+    log.info(f"Theme: Claude.ai Dark Mode")
+    log.info(f"Quality: {CONFIG['quality']}% | Features: Center dot overlay")
     log.info(f"Options: flip={CONFIG['flip']}, rotate={CONFIG['rotate']}°")
+    log.info("Configuration from launch file successfully loaded")
     log.info("=" * 50)
 
-    # Start optimized camera capture thread
-    th_cap = threading.Thread(target=capture_loop, daemon=True)
+    # Start camera capture thread - no parameters needed, uses global CONFIG
+    th_cap = threading.Thread(
+        target=capture_loop,
+        daemon=True
+    )
     th_cap.start()
 
-    # Wait for camera initialization
-    log.info("Initializing optimized camera system...")
-    for i in range(100):  # 5 second timeout
+    # Wait for camera to initialize
+    log.info("Initializing camera system...")
+    initialization_success = False
+    
+    for i in range(200):  # Wait up to 10 seconds
         with jpeg_lock:
             if latest_jpeg is not None:
-                log.info("Camera system ready with optimizations!")
+                initialization_success = True
                 break
         time.sleep(0.05)
         if i % 20 == 0:
-            log.info(f"Waiting for camera... ({i//20 + 1}/5)")
+            log.info(f"Still waiting for camera... ({i//20 + 1}/10)")
     
+    if initialization_success:
+        log.info("Camera system ready!")
+        log.info(f"Using configuration: {CONFIG['width']}x{CONFIG['height']}@{CONFIG['fps']}fps on device {CONFIG['device']}")
+    else:
+        log.warning("Camera not detected within timeout, but starting server anyway...")
+        log.warning("Server will show dummy feed until camera becomes available")
+    
+
     try:
-        # Use threaded Flask for better performance
         app.run(host=CONFIG['host'], port=CONFIG['port'], threaded=True, debug=False)
     except KeyboardInterrupt:
         log.info("\nSystem shutdown by user")
