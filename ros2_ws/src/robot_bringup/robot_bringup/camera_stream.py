@@ -32,23 +32,25 @@ HTML_TEMPLATE = """
         }
         
         body { 
-            font-family: Arial, sans-serif; 
-            background: #2c2c2c; 
-            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #e8e8e8;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             padding: 20px;
+            line-height: 1.6;
         }
         
         h1 { 
-            margin-bottom: 20px; 
-            color: #ffffff;
+            margin-bottom: 30px; 
+            color: #f0f0f0;
             text-align: center;
-            font-size: 2rem;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            font-size: 1.8rem;
+            font-weight: 500;
+            letter-spacing: -0.025em;
         }
         
         #video-container { 
@@ -57,100 +59,131 @@ HTML_TEMPLATE = """
             justify-content: center;
             align-items: center;
             margin: 20px 0;
-            border-radius: 10px;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            background: #2a2a2a;
+            padding: 8px;
         }
         
         #video-stream { 
             width: 800px; 
             height: 600px; 
-            border: 3px solid #444; 
+            border-radius: 8px;
             display: block;
             background: #000;
-            border-radius: 8px;
+            border: 1px solid #3a3a3a;
         }
         
         #overlay { 
             position: absolute; 
-            top: 15px; 
-            left: 15px; 
-            color: #00ff00; 
-            background: rgba(0,0,0,0.8); 
-            padding: 8px 12px; 
-            font-family: 'Courier New', monospace; 
-            font-size: 16px;
-            border-radius: 6px;
-            border: 1px solid #00ff00;
-            text-shadow: 0 0 5px #00ff00;
+            top: 18px; 
+            left: 18px; 
+            color: #10a37f; 
+            background: rgba(26, 26, 26, 0.9);
+            backdrop-filter: blur(8px);
+            padding: 10px 14px; 
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace; 
+            font-size: 13px;
+            border-radius: 8px;
+            border: 1px solid rgba(58, 58, 58, 0.6);
+            font-weight: 500;
         }
         
         .info-panel {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            padding: 20px;
-            margin: 15px 0;
-            border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.2);
-            min-width: 400px;
-            text-align: center;
+            background: rgba(42, 42, 42, 0.8);
+            backdrop-filter: blur(12px);
+            padding: 24px;
+            margin: 16px 0;
+            border-radius: 12px;
+            border: 1px solid rgba(58, 58, 58, 0.3);
+            min-width: 420px;
+            text-align: left;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         }
         
         .info-panel h2 {
-            margin-bottom: 15px;
-            color: #00ff00;
-            font-size: 1.2rem;
+            margin-bottom: 16px;
+            color: #f0f0f0;
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: -0.025em;
         }
         
         #telemetry { 
-            background: rgba(0,0,0,0.8); 
-            color: #00ff00; 
-            padding: 15px; 
-            font-family: 'Courier New', monospace; 
-            max-height: 250px; 
+            background: rgba(16, 16, 16, 0.9);
+            color: #10a37f;
+            padding: 16px; 
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace; 
+            max-height: 300px; 
             overflow-y: auto; 
             border-radius: 8px;
             font-size: 12px;
             line-height: 1.5;
             white-space: pre-wrap;
-            border: 1px solid #00ff00;
-            text-shadow: 0 0 3px #00ff00;
+            border: 1px solid rgba(58, 58, 58, 0.3);
         }
         
         #timestamp {
-            color: #cccccc;
-            font-size: 16px;
-            font-family: 'Courier New', monospace;
+            color: #b0b0b0;
+            font-size: 14px;
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+            font-weight: 400;
         }
         
         .status-indicator {
             display: inline-block;
-            width: 10px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
-            margin-right: 8px;
+            margin-right: 10px;
             animation: pulse 2s infinite;
         }
         
         .status-connected {
-            background-color: #00ff00;
-            box-shadow: 0 0 10px #00ff00;
+            background-color: #10a37f;
+            box-shadow: 0 0 8px rgba(16, 163, 127, 0.5);
         }
         
         .status-disconnected {
-            background-color: #ff0000;
-            box-shadow: 0 0 10px #ff0000;
+            background-color: #ff4444;
+            box-shadow: 0 0 8px rgba(255, 68, 68, 0.5);
         }
         
         .status-loading {
-            background-color: #ffff00;
-            box-shadow: 0 0 10px #ffff00;
+            background-color: #ffa500;
+            box-shadow: 0 0 8px rgba(255, 165, 0, 0.5);
         }
         
         @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(58, 58, 58, 0.2);
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            color: #b0b0b0;
+            font-size: 14px;
+            font-weight: 400;
+        }
+        
+        .info-value {
+            color: #e8e8e8;
+            font-size: 14px;
+            font-weight: 500;
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
         }
         
         @media (max-width: 900px) {
@@ -158,6 +191,7 @@ HTML_TEMPLATE = """
                 width: 90vw;
                 max-width: 800px;
                 height: auto;
+                aspect-ratio: 4/3;
             }
             
             .info-panel {
@@ -172,41 +206,51 @@ HTML_TEMPLATE = """
         
         @media (max-width: 600px) {
             body {
-                padding: 10px;
+                padding: 16px;
             }
             
             #overlay {
-                font-size: 14px;
-                padding: 6px 10px;
+                font-size: 12px;
+                padding: 8px 12px;
             }
             
             h1 {
-                font-size: 1.2rem;
+                font-size: 1.3rem;
+            }
+            
+            .info-panel {
+                padding: 20px;
             }
         }
         
-        /* Scrollbar styling for webkit browsers */
+        /* Scrollbar styling */
         #telemetry::-webkit-scrollbar {
             width: 6px;
         }
         
         #telemetry::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.3);
+            background: rgba(26, 26, 26, 0.5);
             border-radius: 3px;
         }
         
         #telemetry::-webkit-scrollbar-thumb {
-            background: #00ff00;
+            background: rgba(16, 163, 127, 0.6);
             border-radius: 3px;
         }
         
         #telemetry::-webkit-scrollbar-thumb:hover {
-            background: #00cc00;
+            background: rgba(16, 163, 127, 0.8);
+        }
+        
+        /* Firefox scrollbar */
+        #telemetry {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(16, 163, 127, 0.6) rgba(26, 26, 26, 0.5);
         }
     </style>
 </head>
 <body>
-    <h1> Robot Camera Stream</h1>
+    <h1>Robot Camera Stream</h1>
     
     <div id="video-container">
         <img id="video-stream" src="/video" alt="Camera Stream">
@@ -218,13 +262,23 @@ HTML_TEMPLATE = """
     </div>
     
     <div class="info-panel">
-        <h2> System Information</h2>
-        <div> Timestamp: <span id="timestamp">Loading...</span></div>
-        <div> Stream Status: <span id="stream-status">Connecting...</span></div>
+        <h2>System Information</h2>
+        <div class="info-row">
+            <span class="info-label">Timestamp:</span>
+            <span class="info-value" id="timestamp">Loading...</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Stream Status:</span>
+            <span class="info-value" id="stream-status">Connecting...</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Resolution:</span>
+            <span class="info-value">800×600 @ 30fps</span>
+        </div>
     </div>
     
     <div class="info-panel">
-        <h2> Live Telemetry</h2>
+        <h2>Live Telemetry</h2>
         <pre id="telemetry">Loading telemetry data...</pre>
     </div>
 
@@ -387,7 +441,7 @@ HTML_TEMPLATE = """
         
         // Initialize
         console.log("Robot Camera Stream Interface Loaded");
-        console.log("Minimal UI - Center dot overlay enabled by default");
+        console.log("Clean dark mode UI - 800×600 @ 30fps");
         
         // Set initial status
         $("#status-dot").className = "status-indicator status-loading";
@@ -418,7 +472,7 @@ bgr_lock = threading.Lock()
 show_grid = False  # Always disabled
 show_center_dot = True  # Always enabled
 grid_color = (100, 100, 100)    # BGR (not used)
-center_dot_color = (0, 0, 255)  # BGR - red center dot
+center_dot_color = (0, 255, 127)  # BGR - Claude.ai green center dot
 
 fps_ema = 0.0
 last_tick = time.monotonic()
@@ -446,30 +500,31 @@ def draw_overlay_inplace(frame_bgr, show_fps=True):
     h, w = frame_bgr.shape[:2]
     cx, cy = w // 2, h // 2
     
-    # Only center dot - no grid
+    # Claude.ai style center dot
     if show_center_dot:
-        # Draw a larger, more visible center dot
-        cv2.circle(frame_bgr, (cx, cy), 6, center_dot_color, -1, cv2.LINE_AA)
-        cv2.circle(frame_bgr, (cx, cy), 8, (255, 255, 255), 2, cv2.LINE_AA)  # White outline
+        # Main center dot in Claude.ai green
+        cv2.circle(frame_bgr, (cx, cy), 5, center_dot_color, -1, cv2.LINE_AA)
+        # Subtle outer ring
+        cv2.circle(frame_bgr, (cx, cy), 7, (255, 255, 255), 1, cv2.LINE_AA)
     
-    # fps overlay
+    # Clean FPS overlay
     if show_fps:
         text = f"FPS: {fps_ema:.1f}"
         font = cv2.FONT_HERSHEY_SIMPLEX
-        scale = 0.7
+        scale = 0.6
         thick = 2
         size = cv2.getTextSize(text, font, scale, thick)[0]
-        # Black background with green text
-        cv2.rectangle(frame_bgr, (10, 10), (10 + size[0] + 15, 10 + size[1] + 15), (0, 0, 0), -1)
-        cv2.rectangle(frame_bgr, (10, 10), (10 + size[0] + 15, 10 + size[1] + 15), (0, 255, 0), 1)
-        cv2.putText(frame_bgr, text, (17, 10 + size[1] + 5), font, scale, (0, 255, 0), thick, cv2.LINE_AA)
+        # Dark background with Claude.ai green text
+        cv2.rectangle(frame_bgr, (12, 12), (12 + size[0] + 12, 12 + size[1] + 12), (26, 26, 26), -1)
+        cv2.rectangle(frame_bgr, (12, 12), (12 + size[0] + 12, 12 + size[1] + 12), (127, 255, 16), 1)
+        cv2.putText(frame_bgr, text, (18, 12 + size[1] + 3), font, scale, (127, 255, 16), thick, cv2.LINE_AA)
     
-    # coordinates display
+    # Clean coordinates display
     coord_text = f"Center: ({cx},{cy})"
     csize = cv2.getTextSize(coord_text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
-    cv2.rectangle(frame_bgr, (w - csize[0] - 20, 10), (w - 5, 10 + csize[1] + 12), (0, 0, 0), -1)
-    cv2.rectangle(frame_bgr, (w - csize[0] - 20, 10), (w - 5, 10 + csize[1] + 12), (255, 255, 255), 1)
-    cv2.putText(frame_bgr, coord_text, (w - csize[0] - 15, 10 + csize[1] + 3), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+    cv2.rectangle(frame_bgr, (w - csize[0] - 24, 12), (w - 12, 12 + csize[1] + 12), (26, 26, 26), -1)
+    cv2.rectangle(frame_bgr, (w - csize[0] - 24, 12), (w - 12, 12 + csize[1] + 12), (232, 232, 232), 1)
+    cv2.putText(frame_bgr, coord_text, (w - csize[0] - 18, 12 + csize[1] + 3), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (232, 232, 232), 1, cv2.LINE_AA)
 
 # ---------------- Capture Thread ----------------
 def capture_loop(device=0, width=800, height=600, fps=30, flip=True, rotate=0, show_fps=True, jpeg_quality=90):
@@ -495,10 +550,12 @@ def capture_loop(device=0, width=800, height=600, fps=30, flip=True, rotate=0, s
         log.error(f"Cannot open camera device {device}")
         # Create dummy frame for testing
         dummy_frame = np.zeros((height, width, 3), dtype=np.uint8)
+        # Dark background like Claude.ai
+        dummy_frame.fill(26)
         cv2.putText(dummy_frame, "NO CAMERA DETECTED", (width//4, height//2), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 2)
-        cv2.putText(dummy_frame, f"Device: {device}", (width//4, height//2 + 50), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
+                   cv2.FONT_HERSHEY_SIMPLEX, 1.0, (232, 232, 232), 2)
+        cv2.putText(dummy_frame, f"Device: {device} | 800x600@30fps", (width//4, height//2 + 40), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (127, 255, 16), 2)
         
         while True:
             frame_copy = dummy_frame.copy()
@@ -519,11 +576,11 @@ def capture_loop(device=0, width=800, height=600, fps=30, flip=True, rotate=0, s
         return
 
     try:
-        # Set camera properties
+        # Set camera properties - fixed to 800x600@30fps
         cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-        cap.set(cv2.CAP_PROP_FPS, fps)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+        cap.set(cv2.CAP_PROP_FPS, 30)
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         
         # Additional settings for better quality and lower latency
@@ -539,10 +596,10 @@ def capture_loop(device=0, width=800, height=600, fps=30, flip=True, rotate=0, s
 
     actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    actual_fps = cap.get(cv2.CAP_PROP_FPS) or fps
-    log.info(f"Camera settings: {width}x{height}@{fps} | actual: {actual_w}x{actual_h}@{actual_fps:.1f}")
+    actual_fps = cap.get(cv2.CAP_PROP_FPS) or 30
+    log.info(f"Camera settings: 800x600@30fps | actual: {actual_w}x{actual_h}@{actual_fps:.1f}")
 
-    target_frame_time = 1.0 / max(1.0, min(actual_fps, float(fps)))
+    target_frame_time = 1.0 / 30.0
     retry = 0
     max_retry = 5
 
@@ -567,6 +624,10 @@ def capture_loop(device=0, width=800, height=600, fps=30, flip=True, rotate=0, s
             continue
         
         retry = 0  # Reset retry counter on successful read
+        
+        # Ensure frame is exactly 800x600
+        if frame.shape[:2] != (600, 800):
+            frame = cv2.resize(frame, (800, 600))
         
         # Apply transformations
         if flip:
@@ -607,7 +668,7 @@ def capture_loop(device=0, width=800, height=600, fps=30, flip=True, rotate=0, s
             new_frame_event.set()
             new_frame_event.clear()
 
-        # Frame rate limiting
+        # Frame rate limiting to 30fps
         elapsed = time.monotonic() - tick0
         sleep_time = target_frame_time - elapsed
         if sleep_time > 0:
@@ -651,8 +712,8 @@ def video():
 @app.route("/api/telemetry")
 def api_telemetry():
     global latest_bgr, fps_ema
-    h, w = 0, 0
-    cx, cy = 0, 0
+    h, w = 600, 800  # Fixed resolution
+    cx, cy = 400, 300  # Fixed center
     
     with bgr_lock:
         if latest_bgr is not None:
@@ -663,7 +724,8 @@ def api_telemetry():
         "timestamp": time.time(),
         "fps": round(fps_ema, 1),
         "center": {"x": cx, "y": cy},
-        "resolution": {"width": w, "height": h},
+        "resolution": {"width": 800, "height": 600},
+        "target_fps": 30,
         "overlays": {
             "grid": False,  # Always disabled
             "center_dot": True  # Always enabled
@@ -671,45 +733,43 @@ def api_telemetry():
         "camera_status": "active" if latest_bgr is not None else "inactive",
         "system": {
             "uptime": time.time(),
-            "memory_usage": "N/A",
-            "cpu_usage": "N/A"
+            "ui_theme": "claude_dark",
+            "quality": "optimized"
         },
         "encoders": {"fl": 0, "fr": 0, "rl": 0, "rr": 0},
         "imu": {"roll": 0.0, "pitch": 0.0, "yaw": 0.0},
-        "notes": "Center dot overlay active - minimal UI mode"
+        "notes": "Claude.ai dark mode - 800×600@30fps with center dot"
     })
 
 # ---------------- Main ----------------
 def main():
-    parser = argparse.ArgumentParser(description="Robot Camera Stream - Minimal UI with center dot only")
+    parser = argparse.ArgumentParser(description="Robot Camera Stream - Claude.ai Dark Mode Style")
     parser.add_argument('--device', type=int, default=0, help='Camera device index')
-    parser.add_argument('--width', type=int, default=800, help='Camera width')
-    parser.add_argument('--height', type=int, default=600, help='Camera height')
-    parser.add_argument('--fps', type=int, default=30, help='Camera FPS')
     parser.add_argument('--flip', type=int, default=1, help='Flip camera horizontally (0/1)')
     parser.add_argument('--rotate', type=int, default=0, choices=[0, 90, 180, 270], help='Rotate camera')
     parser.add_argument('--port', type=int, default=5000, help='Server port')
-    parser.add_argument('--quality', type=int, default=90, help='JPEG quality (1-100)')
+    parser.add_argument('--quality', type=int, default=92, help='JPEG quality (1-100)')
     parser.add_argument('--show-fps', type=int, default=1, help='Show FPS overlay (0/1)')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Server host')
     args = parser.parse_args()
 
-    log.info(" Starting Robot Camera Stream System")
+    log.info("Starting Robot Camera Stream System")
     log.info("=" * 50)
-    log.info(f" Server: http://{args.host}:{args.port}")
-    log.info(f" Camera: {args.width}x{args.height}@{args.fps}fps (device {args.device})")
-    log.info(f" Features: Center dot overlay, {args.quality}% quality")
-    log.info(f" Options: flip={bool(args.flip)}, rotate={args.rotate}°")
+    log.info(f"Server: http://{args.host}:{args.port}")
+    log.info(f"Camera: 800×600@30fps (device {args.device})")
+    log.info(f"Theme: Claude.ai Dark Mode")
+    log.info(f"Quality: {args.quality}% | Features: Center dot overlay")
+    log.info(f"Options: flip={bool(args.flip)}, rotate={args.rotate}°")
     log.info("=" * 50)
 
-    # Start camera capture thread
+    # Start camera capture thread - fixed resolution
     th_cap = threading.Thread(
         target=capture_loop,
         kwargs=dict(
             device=args.device,
-            width=args.width,
-            height=args.height,
-            fps=args.fps,
+            width=800,
+            height=600,
+            fps=30,
             flip=bool(args.flip),
             rotate=args.rotate,
             show_fps=bool(args.show_fps),
@@ -727,12 +787,12 @@ def main():
                 break
         time.sleep(0.05)
         if i % 20 == 0:
-            log.info(f"   Still waiting... ({i//20 + 1}/8)")
+            log.info(f"   ⏳ Still waiting... ({i//20 + 1}/8)")
     
     if latest_jpeg is not None:
-        log.info(" Camera system ready!")
+        log.info("Camera system ready!")
     else:
-        log.warning("!  Camera not detected, running with dummy feed")
+        log.warning("Camera not detected, running with dummy feed")
     
 
     try:
@@ -740,7 +800,7 @@ def main():
     except KeyboardInterrupt:
         log.info("\n System shutdown by user")
     except Exception as e:
-        log.error(f" Server error: {e}")
+        log.error(f"Server error: {e}")
 
 if __name__ == "__main__":
     main()
