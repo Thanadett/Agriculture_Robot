@@ -8,6 +8,9 @@ import logging
 import cv2
 import numpy as np
 from flask import Flask, Response, render_template, jsonify
+from ament_index_python.packages import get_package_share_directory
+
+package_share = get_package_share_directory("robot_bringup")
 
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
