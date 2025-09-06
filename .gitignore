@@ -4,3 +4,5 @@ ros2_ws/log
 
 __pycache__/
 *.pyc
+
+venv/
