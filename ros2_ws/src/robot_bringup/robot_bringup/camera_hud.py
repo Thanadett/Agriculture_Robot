@@ -9,6 +9,7 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
+from rclpy.node import Node, SetParametersResult
 from sensor_msgs.msg import Image, Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import String
@@ -111,7 +112,7 @@ class CameraHUD(Node):
                 self.get_logger().info(f'switch image topic -> {p.value}')
                 # NOTE: rclpy ยังไม่สะดวกต่อการ re-subscribe runtime ใน 1 node;
                 # ใช้ค่าใหม่ครั้งหน้าตอนรีสตาร์ทจะเสถียรกว่า
-        return rclpy.parameter.SetParametersResult(successful=True)
+        return SetParametersResult(successful=True)
 
     # -------- callbacks --------
     def cb_joy(self, msg: Joy):
