@@ -13,17 +13,21 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', glob('launch/*.py')),
         ('lib/' + package_name, ['robot_bringup/run_camera.sh']),
+        ('share/' + package_name + '/templates', glob('templates/*')),
+        ('share/' + package_name + '/static', glob('static/*')),
     ],
     install_requires=[
         'setuptools',
         'pyserial',
         'flask',
         'opencv-python'
+        'numpy',
+        'pyturbojpeg',
     ],
     zip_safe=True,
-    maintainer='You',
-    maintainer_email='you@example.com',
-    description='Joystick-only teleop with serial bridge to ESP32',
+    maintainer='Thanadet Thanapremin',
+    maintainer_email='n.thanadett@gmail.com',
+    description='391 Project',
     license='Apache-2.0',
     entry_points={
         'console_scripts': [
