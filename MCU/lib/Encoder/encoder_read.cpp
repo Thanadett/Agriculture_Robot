@@ -1,4 +1,4 @@
-#include "encoder_read_L.h"
+#include "encoder_read.h"
 #include <math.h>
 
 // ถ้า M_PI ไม่ถูก define (บาง compiler) → กำหนดเอง
