@@ -9,20 +9,20 @@ from launch_ros.actions import Node
 def generate_launch_description():
     return LaunchDescription([
         # Serial to ESP32
-        # DeclareLaunchArgument('port_serial', default_value='/dev/ttyUSB0'),
-        # DeclareLaunchArgument('baud', default_value='115200'),
-        # DeclareLaunchArgument('max_linear', default_value='255.0'),
-        # DeclareLaunchArgument('max_angular', default_value='255.0'),
+        DeclareLaunchArgument('port_serial', default_value='/dev/ttyUSB0'),
+        DeclareLaunchArgument('baud', default_value='115200'),
+        DeclareLaunchArgument('max_linear', default_value='255.0'),
+        DeclareLaunchArgument('max_angular', default_value='255.0'),
 
-        # Node(
-        #     package='robot_bringup', executable='serial_bridge', name='serial_bridge', output='screen',
-        #     parameters=[{
-        #         'port': LaunchConfiguration('port_serial'),
-        #         'baud': LaunchConfiguration('baud'),
-        #         'max_linear': LaunchConfiguration('max_linear'),
-        #         'max_angular': LaunchConfiguration('max_angular'),
-        #     }],
-        # ),
+        Node(
+            package='robot_bringup', executable='serial_bridge', name='serial_bridge', output='screen',
+            parameters=[{
+                'port': LaunchConfiguration('port_serial'),
+                'baud': LaunchConfiguration('baud'),
+                'max_linear': LaunchConfiguration('max_linear'),
+                'max_angular': LaunchConfiguration('max_angular'),
+            }],
+        ),
 
         # Camera Stream (Flask)
         DeclareLaunchArgument('video_device', default_value='0'),
