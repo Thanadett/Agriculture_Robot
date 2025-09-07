@@ -13,6 +13,7 @@ void setup() {
   enc.begin(/*enable_internal_pullups=*/true); // เริ่มใช้งานเอ็นโค้ดเดอร์
 
   // หากทิศการนับของล้อใดกลับด้าน ให้เปิดใช้บรรทัดนี้
+  
   // enc.setInvert(true, false);
 
   // หากต้องการ override PPR หรือรัศมีล้อ ให้ตั้งค่าที่นี่

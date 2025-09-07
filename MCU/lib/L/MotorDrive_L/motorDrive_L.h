@@ -7,10 +7,10 @@
 #define LR_IN1 27
 #define LR_IN2 26
 
-#define RF_IN1 33
-#define RF_IN2 25
-#define RR_IN1 4
-#define RR_IN2 0
+#define RF_IN1 33   //not used
+#define RF_IN2 25   //not used
+#define RR_IN1 4    //not used
+#define RR_IN2 0    //not used
 
 // ---------------- LEDC PWM ----------------
 static constexpr int PWM_FREQ_HZ = 20000; // 20kHz เงียบ

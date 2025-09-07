@@ -1,7 +1,7 @@
 #ifdef Node1
 #include <Arduino.h>
-#include "motorDrive.h"
-#include "encoder_reader.h"
+#include "MotorDrive_L/motorDrive_L.h"
+#include "Encoder_L/encoder_read_L.h"
 
 // ใช้ค่า default ที่ประกาศไว้ใน encoder_reader.h
 DualEncoderReader enc;  // (rearA=ENC_R_A, rearB=ENC_R_B, frontA=ENC_F_A, frontB=ENC_F_B, PPR=ENCODER_PPR_OUTPUT_DEFAULT)
