@@ -7,8 +7,8 @@
 #define LR_IN1 27
 #define LR_IN2 26
 
-#define RF_IN1 33
-#define RF_IN2 25
+#define RF_IN1 25
+#define RF_IN2 33
 #define RR_IN1 4
 #define RR_IN2 0
 

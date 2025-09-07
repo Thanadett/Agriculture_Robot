@@ -109,7 +109,7 @@ static void handleLine(String line) {
     }
     estop = (val != 0);
     if (estop) tgt_LF = tgt_LR = tgt_RF = tgt_RR = 0.f;
-    Serial.printf("ACK ESTOP=%d\n", estop ? 1 : 0);
+    // Serial.printf("ACK ESTOP=%d\n", estop ? 1 : 0);
     return;
   }
 
@@ -120,9 +120,9 @@ static void handleLine(String line) {
     if (okV && okW) {
       last_cmd_ms = millis();
       cmdVW_to_targets(V, W);
-      Serial.printf("ACK VW V=%.3f W=%.3f -> L=%.2f R=%.2f\n", V, W, tgt_LF, tgt_RF);
+      // Serial.printf("ACK VW V=%.3f W=%.3f -> L=%.2f R=%.2f\n", V, W, tgt_LF, tgt_RF);
     } else {
-      Serial.println("ERR VW FORMAT (need: VW V=<m/s> W=<rad/s>)");
+      // Serial.println("ERR VW FORMAT (need: VW V=<m/s> W=<rad/s>)");
     }
     return;
   }
@@ -141,9 +141,9 @@ static void handleLine(String line) {
         tgt_LR = clampf(lr, -1.f, 1.f);
         tgt_RF = clampf(rf, -1.f, 1.f);
         tgt_RR = clampf(rr, -1.f, 1.f);
-        Serial.printf("ACK PW4 LF=%.2f LR=%.2f RF=%.2f RR=%.2f\n", tgt_LF, tgt_LR, tgt_RF, tgt_RR);
+        // Serial.printf("ACK PW4 LF=%.2f LR=%.2f RF=%.2f RR=%.2f\n", tgt_LF, tgt_LR, tgt_RF, tgt_RR);
       } else {
-        Serial.println("ERR PW4 FORMAT (need: PW4 LF= LR= RF= RR=)");
+        // Serial.println("ERR PW4 FORMAT (need: PW4 LF= LR= RF= RR=)");
       }
     } else {
       float L=0.f, R=0.f;
@@ -155,15 +155,15 @@ static void handleLine(String line) {
         R = clampf(R, -1.f, 1.f);
         tgt_LF = tgt_LR = L;
         tgt_RF = tgt_RR = R;
-        Serial.printf("ACK P L=%.2f R=%.2f\n", L, R);
+        // Serial.printf("ACK P L=%.2f R=%.2f\n", L, R);
       } else {
-        Serial.println("ERR P FORMAT (need: P L=<..> R=<..> or PW4 ...)");
+        // Serial.println("ERR P FORMAT (need: P L=<..> R=<..> or PW4 ...)");
       }
     }
     return;
   }
 
-  Serial.println("ERR UNKNOWN CMD");
+  // Serial.println("ERR UNKNOWN CMD");
 }
 
 // ========================= Public API =========================
@@ -182,12 +182,12 @@ void motorDrive_begin() {
   applyMotors(0, 0, 0, 0);
   last_cmd_ms = millis();
 
-  Serial.println("READY 4WD MOTOR-ONLY @115200");
-  Serial.println("Commands: ");
-  Serial.println("  VW V=<m/s> W=<rad/s>");
-  Serial.println("  P L=<-1..1> R=<-1..1>");
-  Serial.println("  PW4 LF=<..> LR=<..> RF=<..> RR=<..>");
-  Serial.println("  ESTOP 0|1");
+  // Serial.println("READY 4WD MOTOR-ONLY @115200");
+  // Serial.println("Commands: ");
+  // Serial.println("  VW V=<m/s> W=<rad/s>");
+  // Serial.println("  P L=<-1..1> R=<-1..1>");
+  // Serial.println("  PW4 LF=<..> LR=<..> RF=<..> RR=<..>");
+  // Serial.println("  ESTOP 0|1");
 }
 
 void motorDrive_handleSerialOnce() {
