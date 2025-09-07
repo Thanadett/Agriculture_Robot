@@ -10,6 +10,7 @@
 #include <Arduino.h>
 #include <ESP32Encoder.h>
 
+//yellow wire = A, green wire = B
 #define ENC_R_A 16   // R => rear A
 #define ENC_R_B 17   // R => rear B
 #define ENC_F_A 5    // F => front A
