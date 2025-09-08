@@ -8,6 +8,7 @@
 #include <std_msgs/msg/float32_multi_array.h>
 
 #include "encoder_read.h"
+#include "encoder_ros_pub.h" 
 
 // Global instance (defined in main.cpp)
 extern QuadEncoderReader enc4;
@@ -68,8 +69,8 @@ static void timer_cb(rcl_timer_t * timer, int64_t) {
 }
 
 void enc_microros_begin_serial() {
-  // ต้องมี Serial.begin(...) ใน setup() ก่อนเรียกฟังก์ชันนี้
-  set_microros_serial_transports(Serial);
+
+  // set_microros_serial_transports(Serial);
 
   g_alloc = rcl_get_default_allocator();
   rclc_support_init(&g_support, 0, NULL, &g_alloc);
@@ -96,5 +97,5 @@ void enc_microros_begin_serial() {
 }
 
 void enc_microros_spin_some() {
-  rclc_executor_spin_some(&g_exec, RCL_MS_TO_NS(2));
+  rclc_executor_spin_some(&g_exec, RCL_MS_TO_NS(5));
 }
