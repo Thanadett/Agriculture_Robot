@@ -21,10 +21,10 @@ void setup() {
   enc4.setWheelRadius(0.0635f);
   
   set_microros_serial_transports(Serial);  
+  //rmw_uros_set_domain_id(69);
   while (RMW_RET_OK != rmw_uros_ping_agent(100 /*ms*/, 50 /*ครั้ง*/)) {
     delay(100);
   }
-
   enc_microros_begin_serial();
 
 }

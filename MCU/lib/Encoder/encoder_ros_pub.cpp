@@ -111,15 +111,34 @@ static void timer_cb(rcl_timer_t * timer, int64_t)
   if (rc2 != RCL_RET_OK) { ++pub_fail_total; }
 }
 
-// ====== init เดิม (ไม่ set transport ที่นี่) ======
 void enc_microros_begin_serial()
 {
   g_alloc = rcl_get_default_allocator();
 
-  if (rclc_support_init(&g_support, 0, NULL, &g_alloc) != RCL_RET_OK) { return; }
+  // ---------- ตั้งค่า Domain ID = 69 ผ่าน init_options ----------
+  rcl_init_options_t init_options = rcl_get_zero_initialized_init_options();
+  if (rcl_init_options_init(&init_options, g_alloc) != RCL_RET_OK) {
+    return;
+  }
+  if (rcl_init_options_set_domain_id(&init_options, 69) != RCL_RET_OK) {
+    (void) rcl_init_options_fini(&init_options);
+    return;
+  }
+
+  // ใช้ init_options ที่ใส่ domain id แล้ว
+  if (rclc_support_init_with_options(&g_support, 0, NULL, &init_options, &g_alloc) != RCL_RET_OK) {
+    (void) rcl_init_options_fini(&init_options);
+    return;
+  }
   g_support_ok = true;
 
-  if (rclc_node_init_default(&g_node, "esp32_encoder_node", "", &g_support) != RCL_RET_OK) { enc_ros_fini_all(); return; }
+  // init_options ไม่ต้องใช้ต่อแล้ว (cleanup)
+  (void) rcl_init_options_fini(&init_options);
+
+  // ---------- node / publishers / timer / executor ----------
+  if (rclc_node_init_default(&g_node, "esp32_encoder_node", "", &g_support) != RCL_RET_OK) {
+    enc_ros_fini_all(); return;
+  }
   g_node_ok = true;
 
   if (rclc_publisher_init_default(
@@ -135,13 +154,19 @@ void enc_microros_begin_serial()
   g_pub_total_ok = true;
 
   const unsigned period_ms = 100;
-  if (rclc_timer_init_default(&g_timer, &g_support, RCL_MS_TO_NS(period_ms), timer_cb) != RCL_RET_OK) { enc_ros_fini_all(); return; }
+  if (rclc_timer_init_default(&g_timer, &g_support, RCL_MS_TO_NS(period_ms), timer_cb) != RCL_RET_OK) {
+    enc_ros_fini_all(); return;
+  }
   g_timer_ok = true;
 
-  if (rclc_executor_init(&g_exec, &g_support.context, 1, &g_alloc) != RCL_RET_OK) { enc_ros_fini_all(); return; }
+  if (rclc_executor_init(&g_exec, &g_support.context, 1, &g_alloc) != RCL_RET_OK) {
+    enc_ros_fini_all(); return;
+  }
   g_exec_ok = true;
 
-  if (rclc_executor_add_timer(&g_exec, &g_timer) != RCL_RET_OK) { enc_ros_fini_all(); return; }
+  if (rclc_executor_add_timer(&g_exec, &g_timer) != RCL_RET_OK) {
+    enc_ros_fini_all(); return;
+  }
 }
 
 
