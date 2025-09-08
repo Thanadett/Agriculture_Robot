@@ -2,76 +2,92 @@
 #include <Arduino.h>
 #include <ESP32Encoder.h>
 
-#define ENC_R_A 16
-#define ENC_R_B 17
-#define ENC_F_A 5
-#define ENC_F_B 18
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
+// --- Wheel index order: FL, FR, RL, RR ---
+enum WheelIndex : uint8_t { W_FL = 0, W_FR = 1, W_RL = 2, W_RR = 3, W_COUNT = 4 };
+
+// --- Default encoder pins (ปรับให้ตรงการเดินสายจริง) ---
+
+#define ENC_FL_A 35 //yellow
+#define ENC_FL_B 32//green
+
+#define ENC_RL_A 33
+#define ENC_RL_B 25
+
+#define ENC_FR_A 19
+#define ENC_FR_B 18
+
+#define ENC_RR_A 17
+#define ENC_RR_B 16
+
+
+// --- Encoder spec defaults (แก้ตามรุ่นจริงได้) ---
 #define ENCODER_PPR_MOTOR 11.0f
-#define REDUCTION_RATIO   270.0f
-#define QUAD_MULTIPLIER   2.0f
-#define ENC_WHEEL_RADIUS  0.0635f
+#define REDUCTION_RATIO   270.0f      // gearbox ratio
+#define QUAD_MULTIPLIER   2.0f        // half-quad
+#define ENC_WHEEL_RADIUS  0.0635f     // m (D=0.127 m ~ 5")
 
 static constexpr float ENCODER_PPR_OUTPUT_DEFAULT =
     ENCODER_PPR_MOTOR * REDUCTION_RATIO * QUAD_MULTIPLIER;
 
-class DualEncoderReader {
+// ===== 4-wheel quadrature encoder reader =====
+class QuadEncoderReader {
 public:
-  DualEncoderReader(int rearA = ENC_R_A, int rearB = ENC_R_B,
-                    int frontA = ENC_F_A, int frontB = ENC_F_B,
-                    float pulses_per_rev_output = ENCODER_PPR_OUTPUT_DEFAULT);
+  QuadEncoderReader(
+      int flA = ENC_FL_A, int flB = ENC_FL_B,
+      int frA = ENC_FR_A, int frB = ENC_FR_B,
+      int rlA = ENC_RL_A, int rlB = ENC_RL_B,
+      int rrA = ENC_RR_A, int rrB = ENC_RR_B,
+      float pulses_per_rev_output = ENCODER_PPR_OUTPUT_DEFAULT)
+  : ppr_out_(pulses_per_rev_output) {
+    pins_[W_FL][0] = flA; pins_[W_FL][1] = flB;
+    pins_[W_FR][0] = frA; pins_[W_FR][1] = frB;
+    pins_[W_RL][0] = rlA; pins_[W_RL][1] = rlB;
+    pins_[W_RR][0] = rrA; pins_[W_RR][1] = rrB;
+  }
 
   void begin(bool enable_internal_pullups = true);
   void update();
   void reset();
 
   // --- getters ---
-  float positionRearRad()  const { return posR_rad_; }
-  float positionFrontRad() const { return posF_rad_; }
-  float velocityRearRad()  const { return velR_rad_s_; }
-  float velocityFrontRad() const { return velF_rad_s_; }
-  long  countsRear()              { return encR_.getCount(); }
-  long  countsFront()             { return encF_.getCount(); }
+  float positionRad(WheelIndex w)           const { return pos_rad_[w]; }     // [rad] signed
+  float velocityRadPerSec(WheelIndex w)     const { return vel_rad_s_[w]; }   // [rad/s]
+  long  counts(WheelIndex w)                      { return enc_[w].getCount(); }
+  float totalDistanceM(WheelIndex w)        const { return total_dist_m_[w]; } // accumulated meters (abs)
 
+  // wheel geometry
+  void  setWheelRadius(float r_m) { wheel_radius_m_ = r_m; }
+  float wheelRadius() const       { return wheel_radius_m_; }
+  float circumferenceM() const    { return 2.0f * (float)M_PI * wheel_radius_m_; }
+
+  // PPR
   void  setPPR(float pulses_per_rev_output) { ppr_out_ = pulses_per_rev_output; }
   float getPPR() const { return ppr_out_; }
 
-  void setInvert(bool invert_rear, bool invert_front) {
-    invR_ = invert_rear  ? -1 : 1;
-    invF_ = invert_front ? -1 : 1;
+  // invert direction per wheel
+  void setInvert(bool invFL, bool invFR, bool invRL, bool invRR) {
+    inv_[W_FL] = invFL ? -1 : 1;
+    inv_[W_FR] = invFR ? -1 : 1;
+    inv_[W_RL] = invRL ? -1 : 1;
+    inv_[W_RR] = invRR ? -1 : 1;
   }
 
-  void  setWheelRadius(float radius_m) { wheel_radius_m_ = radius_m; }
-  float wheelRadius() const            { return wheel_radius_m_; }
-
-  float distanceRearM()  const { return wheel_radius_m_ * posR_rad_; }
-  float distanceFrontM() const { return wheel_radius_m_ * posF_rad_; }
-
-  float totalDistanceRearM()  const { return total_dist_R_m_; }
-  float totalDistanceFrontM() const { return total_dist_F_m_; }
-
-  float circumferenceM() const;
-  float remainingToNextRevRearM()  const;
-  float remainingToNextRevFrontM() const;
-
 private:
-  int rA_, rB_, fA_, fB_;
-  ESP32Encoder encR_, encF_;
-  float ppr_out_ = ENCODER_PPR_OUTPUT_DEFAULT;
-  int   invR_ = 1, invF_ = 1;
+  int pins_[W_COUNT][2];
+  ESP32Encoder enc_[W_COUNT];
 
+  float ppr_out_ = ENCODER_PPR_OUTPUT_DEFAULT;
+  int   inv_[W_COUNT] = {1,1,1,1};
   float wheel_radius_m_ = ENC_WHEEL_RADIUS;
 
-  long     lastR_ = 0, lastF_ = 0;
+  long     last_counts_[W_COUNT] = {0,0,0,0};
   uint32_t last_ts_ms_ = 0;
 
-  float posR_rad_ = 0.f, posF_rad_ = 0.f;
-  float velR_rad_s_ = 0.f, velF_rad_s_ = 0.f;
-
-  long revRear_ = 0, revFront_ = 0;
-
-  float total_dist_R_m_ = 0.f;
-  float total_dist_F_m_ = 0.f;
+  float pos_rad_[W_COUNT]     = {0,0,0,0};
+  float vel_rad_s_[W_COUNT]   = {0,0,0,0};
+  float total_dist_m_[W_COUNT]= {0,0,0,0};
 };
-
-
