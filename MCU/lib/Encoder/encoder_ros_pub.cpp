@@ -11,6 +11,9 @@ extern "C" {
 #include <sensor_msgs/msg/joint_state.h>
 #include <std_msgs/msg/float32_multi_array.h>
 
+#include <std_msgs/msg/multi_array_dimension.h>
+#include <rosidl_runtime_c/string_functions.h>
+
 #include "encoder_read.h"
 #include "encoder_ros_pub.h"
 
@@ -97,6 +100,17 @@ static void timer_cb(rcl_timer_t * timer, int64_t)
   g_total[W_RL] = enc4.totalDistanceM(W_RL);
   g_total[W_RR] = enc4.totalDistanceM(W_RR);
 
+    // เติมเวลา (ใช้เวลาจาก agent ถ้ามี)
+  int64_t ns = rmw_uros_epoch_nanos();
+  if (ns > 0) {
+    g_msg_js.header.stamp.sec     = (int32_t)(ns / 1000000000LL);
+    g_msg_js.header.stamp.nanosec = (uint32_t)(ns % 1000000000LL);
+  } else {
+    // ถ้ายังไม่มี epoch ก็ปล่อยศูนย์ไปก่อน (หรือจะคำนวณจาก millis() ก็ได้)
+    g_msg_js.header.stamp.sec = 0;
+    g_msg_js.header.stamp.nanosec = 0;
+  }
+
   g_msg_js.name.data = nullptr; g_msg_js.name.size = 0; g_msg_js.name.capacity = 0;
   g_msg_js.position.data = g_pos; g_msg_js.position.size = 4; g_msg_js.position.capacity = 4;
   g_msg_js.velocity.data = g_vel; g_msg_js.velocity.size = 4; g_msg_js.velocity.capacity = 4;
@@ -152,6 +166,32 @@ void enc_microros_begin_serial()
   // ---- เคลียร์ message struct (กันขยะใน sequence) ----
   memset(&g_msg_js, 0, sizeof(g_msg_js));
   memset(&g_msg_total, 0, sizeof(g_msg_total));
+  // ---------- เตรียมค่าเริ่มต้นให้ข้อความ ----------
+
+  // JointState: init โครงสร้าง + ตั้ง name (4 ล้อ) + frame_id
+  sensor_msgs__msg__JointState__init(&g_msg_js);
+
+  // name[] = ["wheel_fl","wheel_fr","wheel_rl","wheel_rr"]
+  rosidl_runtime_c__String__Sequence__init(&g_msg_js.name, 4);
+  rosidl_runtime_c__String__assign(&g_msg_js.name.data[0], "wheel_fl");
+  rosidl_runtime_c__String__assign(&g_msg_js.name.data[1], "wheel_fr");
+  rosidl_runtime_c__String__assign(&g_msg_js.name.data[2], "wheel_rl");
+  rosidl_runtime_c__String__assign(&g_msg_js.name.data[3], "wheel_rr");
+
+  // frame_id = "base_link"
+  rosidl_runtime_c__String__assign(&g_msg_js.header.frame_id, "base_link");
+
+  // init ข้อความรวม
+  std_msgs__msg__Float32MultiArray__init(&g_msg_total);
+
+  // init sequence ของ dim ให้มี 1 element
+  std_msgs__msg__MultiArrayDimension__Sequence__init(&g_msg_total.layout.dim, 1);
+
+  // ตั้งค่าของ dim[0]
+  rosidl_runtime_c__String__assign(&g_msg_total.layout.dim.data[0].label, "wheel");
+  g_msg_total.layout.dim.data[0].size   = 4;
+  g_msg_total.layout.dim.data[0].stride = 4;
+  g_msg_total.layout.data_offset        = 0;
 
   // ---- Timer + Executor ----
   const unsigned period_ms = 100;  // 10 Hz
