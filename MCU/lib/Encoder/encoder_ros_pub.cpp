@@ -57,7 +57,6 @@ static bool g_pub_total_ok = false;
 static bool g_timer_ok     = false;
 static bool g_exec_ok      = false;
 
-
 // ===== utils: ปิด/คืนทรัพยากรทั้งหมดอย่างปลอดภัย =====
 static void enc_ros_fini_all()
 {
@@ -149,6 +148,16 @@ void enc_microros_begin_serial()
 {
   g_alloc = rcl_get_default_allocator();
 
+  // ---- กำหนด QoS เอง ----
+  rmw_qos_profile_t qos = rmw_qos_profile_default;
+  qos.reliability = RMW_QOS_POLICY_RELIABILITY_RELIABLE;   // ส่งให้ครบทุกข้อความ
+  qos.durability  = RMW_QOS_POLICY_DURABILITY_VOLATILE;    // ไม่เก็บ backlog
+  qos.history     = RMW_QOS_POLICY_HISTORY_KEEP_LAST;
+  qos.depth       = 10;
+
+  rcl_publisher_options_t pub_opt = rcl_publisher_get_default_options();
+  pub_opt.qos = qos;
+
   // ---- Domain ID = 69 ----
   rcl_init_options_t init_options = rcl_get_zero_initialized_init_options();
   if (rcl_init_options_init(&init_options, g_alloc) != RCL_RET_OK) return;
@@ -170,17 +179,19 @@ void enc_microros_begin_serial()
   }
   g_node_ok = true;
 
-  // ---- Publishers ใช้ BEST_EFFORT เพื่อง่ายต่อการ echo ----
-  if (rclc_publisher_init_best_effort(
+  // ---- Publishers ใช้ QoS ที่กำหนดเอง (RELIABLE, depth=10) ----
+  if (rcl_publisher_init(
         &g_pub_js, &g_node,
         ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, JointState),
-        "/enc/joint_states") != RCL_RET_OK) { enc_ros_fini_all(); return; }
+        "/enc/joint_states",
+        &pub_opt) != RCL_RET_OK) { enc_ros_fini_all(); return; }
   g_pub_js_ok = true;
 
-  if (rclc_publisher_init_best_effort(
+  if (rcl_publisher_init(
         &g_pub_total, &g_node,
         ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
-        "/enc/total") != RCL_RET_OK) { enc_ros_fini_all(); return; }
+        "/enc/total",
+        &pub_opt) != RCL_RET_OK) { enc_ros_fini_all(); return; }
   g_pub_total_ok = true;
 
   // ---- เคลียร์ message struct (กันขยะใน sequence) ----

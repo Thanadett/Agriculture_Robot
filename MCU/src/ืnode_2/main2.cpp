@@ -22,7 +22,8 @@ void setup() {
   delay(200);
 
   enc4.begin(true);
-  enc4.setInvert(false,false,false,false);
+  //FF, FR, RL, RR
+  enc4.setInvert(false,true,false,false);
   enc4.setWheelRadius(0.0635f);
   
   set_microros_serial_transports(Serial);  
