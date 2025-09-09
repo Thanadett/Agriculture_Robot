@@ -823,7 +823,6 @@ def main():
     log.info("=" * 50)
     log.info(f"Server: http://{CONFIG['host']}:{CONFIG['port']}")
     log.info(f"Camera: {CONFIG['width']}×{CONFIG['height']}@{CONFIG['fps']}fps (device {CONFIG['device']})")
-    log.info(f"Theme: Claude.ai Dark Mode")
     log.info(f"Quality: {CONFIG['quality']}% | Features: Center dot overlay")
     log.info(f"Options: flip={CONFIG['flip']}, rotate={CONFIG['rotate']}°")
     log.info("Configuration from launch file successfully loaded")
