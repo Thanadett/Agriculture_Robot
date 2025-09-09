@@ -7,17 +7,14 @@ import time
 import logging
 import cv2
 import numpy as np
-from flask import Flask, Response, jsonify, render_template
+from flask import Flask, Response, render_template, jsonify
 
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("lowlag-stream")
 
 # ---------------- Flask ----------------
-app = Flask(__name__, 
-            template_folder='templates',
-            static_folder='templates/static')
-
+app = Flask(__name__)
 
 # ---------------- Globals ----------------
 latest_jpeg = None
@@ -292,15 +289,12 @@ def mjpeg_generator():
 # ---------------- Routes ----------------
 @app.route("/")
 def index():
-    return render_template(
-        "index.html",
-        width=CONFIG['width'],
-        height=CONFIG['height'],
-        fps=CONFIG['fps']
-    )
+    """Main page - serve the static HTML file"""
+    return render_template("index.html")
 
 @app.route("/video")
 def video():
+    """Video stream route"""
     return Response(
         mjpeg_generator(), 
         mimetype='multipart/x-mixed-replace; boundary=frame',
@@ -314,6 +308,7 @@ def video():
 
 @app.route("/api/telemetry")
 def api_telemetry():
+    """Telemetry API using dynamic configuration"""
     global latest_bgr, fps_ema, CONFIG
     
     # Use configured resolution
@@ -358,7 +353,7 @@ def main():
     parser.add_argument('--flip', type=int, default=0, help='Flip camera horizontally (0/1)')
     parser.add_argument('--rotate', type=int, default=0, choices=[0, 90, 180, 270], help='Rotate camera')
     parser.add_argument('--port', type=int, default=5000, help='Server port')
-    parser.add_argument('--quality', type=int, default=75,help='JPEG quality (1-100)')
+    parser.add_argument('--quality', type=int, default=85,help='JPEG quality (1-100)')
     parser.add_argument('--show-fps', type=int, default=1, help='Show FPS overlay (0/1)')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Server host')
     args = parser.parse_args()
@@ -395,6 +390,7 @@ def main():
     log.info("=" * 50)
     log.info(f"Server: http://{CONFIG['host']}:{CONFIG['port']}")
     log.info(f"Camera: {CONFIG['width']}×{CONFIG['height']}@{CONFIG['fps']}fps (device {CONFIG['device']})")
+    log.info(f"Theme: Claude.ai Dark Mode")
     log.info(f"Quality: {CONFIG['quality']}% | Features: Center dot overlay")
     log.info(f"Options: flip={CONFIG['flip']}, rotate={CONFIG['rotate']}°")
     log.info("Configuration from launch file successfully loaded")
@@ -437,3 +433,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    parser.add_argument
