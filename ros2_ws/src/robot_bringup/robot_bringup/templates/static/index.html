@@ -1,38 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Robot Camera Stream</title>
-    <link rel="stylesheet" href="app.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Robot Camera Stream</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
 </head>
-<body>
-    <h1>Robot Camera Stream</h1>
-    
-    <div id="video-container">
-        <img id="video-stream" src="/video" alt="Camera Stream">
-        <div id="overlay">
-            <span class="status-indicator status-connected" id="status-dot"></span>
-            FPS: <span id="fps">0</span> 
-        </div>
-    </div>
-    
-    <div class="info-panel">
-        <h2>System Information</h2>
-        <div class="info-row">
-            <span class="info-label">Timestamp:</span>
-            <span class="info-value" id="timestamp">Loading...</span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Stream Status:</span>
-            <span class="info-value" id="stream-status">Connecting...</span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Resolution:</span>
-            <span class="info-value">{{ width }}×{{ height }} @ {{ fps }}fps</span>
-        </div>
-    </div>
+<body data-video-width="{{ width }}" data-video-height="{{ height }}">
+  <h1>Robot Camera Stream</h1>
 
-    <script src="app.js"></script>
+  <div id="video-container">
+    <img id="video-stream" src="/video" alt="Camera Stream">
+    <div id="overlay">
+      <span class="status-indicator status-connected" id="status-dot"></span>
+      FPS: <span id="fps">0</span> 
+    </div>
+  </div>
+
+  <div class="info-panel">
+    <h2>System Information</h2>
+    <div class="info-row">
+      <span class="info-label">Timestamp:</span>
+      <span class="info-value" id="timestamp">Loading...</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Stream Status:</span>
+      <span class="info-value" id="stream-status">Connecting...</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Resolution:</span>
+      <span class="info-value" id="resolution">{{ width }}×{{ height }}</span>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
