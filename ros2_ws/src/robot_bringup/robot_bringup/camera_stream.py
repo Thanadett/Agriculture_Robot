@@ -468,7 +468,7 @@ CONFIG = {
     'fps': 30,
     'port': 5000,
     'host': '0.0.0.0',
-    'quality': 85,
+    'quality': 75,
     'flip': False,
     'rotate': 0,
     'show_fps': True
@@ -478,12 +478,12 @@ CONFIG = {
 try:
     from turbojpeg import TurboJPEG, TJPF_BGR, TJSAMP_420
     _jpeg = TurboJPEG()
-    def encode_jpeg(img_bgr, quality=85):
+    def encode_jpeg(img_bgr, quality=75):
         return _jpeg.encode(img_bgr, quality=quality, pixel_format=TJPF_BGR, jpeg_subsample=TJSAMP_420)
     log.info("TurboJPEG enabled")
 except Exception:
     _jpeg = None
-    def encode_jpeg(img_bgr, quality=85):
+    def encode_jpeg(img_bgr, quality=75):
         params = [int(cv2.IMWRITE_JPEG_QUALITY), int(quality), int(cv2.IMWRITE_JPEG_OPTIMIZE), 1]
         ok, buf = cv2.imencode(".jpg", img_bgr, params)
         if not ok:
@@ -786,7 +786,7 @@ def main():
     parser.add_argument('--flip', type=int, default=0, help='Flip camera horizontally (0/1)')
     parser.add_argument('--rotate', type=int, default=0, choices=[0, 90, 180, 270], help='Rotate camera')
     parser.add_argument('--port', type=int, default=5000, help='Server port')
-    parser.add_argument('--quality', type=int, default=85,help='JPEG quality (1-100)')
+    parser.add_argument('--quality', type=int, default=75,help='JPEG quality (1-100)')
     parser.add_argument('--show-fps', type=int, default=1, help='Show FPS overlay (0/1)')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Server host')
     args = parser.parse_args()
