@@ -24,6 +24,19 @@ def generate_launch_description():
             }],
         ),
 
+        Node(
+            package='robot_bringup', executable='encode_bridge', name='encode_bridge', output='screen',
+            parameters=[{
+                'print_hz': 2.0,
+                'decimals': 4,
+                'deadband': 1e-4,
+                'wheel_radius': 0.0635,   # m
+                'units_pos': 'rad',       # 'rad' or 'deg'
+                'units_dist': 'm',        # 'm' or 'mm'
+                'enable_log': False,      # << สวิตช์ เปิด/ปิด log
+            }],
+        ),
+
         # Camera Stream (Flask)
         DeclareLaunchArgument('video_device', default_value='0'),
         DeclareLaunchArgument('width', default_value='800'),
