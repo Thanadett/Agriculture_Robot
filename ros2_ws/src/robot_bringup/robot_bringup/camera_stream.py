@@ -7,7 +7,7 @@ import time
 import logging
 import cv2
 import numpy as np
-from flask import Flask, Response, render_template_string, jsonify
+from flask import Flask, Response, jsonify, render_template
 
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -290,8 +290,7 @@ def mjpeg_generator():
 # ---------------- Routes ----------------
 @app.route("/")
 def index():
-    return render_template(
-        "index.html",
+    return HTML_TEMPLATE.format(
         width=CONFIG['width'],
         height=CONFIG['height'],
         fps=CONFIG['fps']
