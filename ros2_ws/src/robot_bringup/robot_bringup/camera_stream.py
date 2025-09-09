@@ -14,7 +14,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger("lowlag-stream")
 
 # ---------------- Flask ----------------
-app = Flask(__name__)
+app = Flask(__name__, 
+            template_folder='templates',
+            static_folder='templates/static')
 
 
 # ---------------- Globals ----------------
@@ -290,9 +292,12 @@ def mjpeg_generator():
 # ---------------- Routes ----------------
 @app.route("/")
 def index():
-    return HTML_TEMPLATE.replace('{{ width }}', str(CONFIG['width'])) \
-                       .replace('{{ height }}', str(CONFIG['height'])) \
-                       .replace('{{ fps }}', str(CONFIG['fps']))
+    return render_template(
+        "index.html",
+        width=CONFIG['width'],
+        height=CONFIG['height'],
+        fps=CONFIG['fps']
+    )
 
 @app.route("/video")
 def video():
