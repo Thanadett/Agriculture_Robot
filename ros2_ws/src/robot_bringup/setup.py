@@ -32,6 +32,7 @@ setup(
             'joystick_teleop = robot_bringup.joystick_teleop:main',
             'serial_bridge = robot_bringup.serial_bridge:main',
             'camera_stream = robot_bringup.camera_stream:main',
+            'encode_bridge = robot_bringup.encode_bridge:main',
         ],
     },
     python_requires='>=3.12',
