@@ -290,11 +290,9 @@ def mjpeg_generator():
 # ---------------- Routes ----------------
 @app.route("/")
 def index():
-    return HTML_TEMPLATE.format(
-        width=CONFIG['width'],
-        height=CONFIG['height'],
-        fps=CONFIG['fps']
-    )
+    return HTML_TEMPLATE.replace('{{ width }}', str(CONFIG['width'])) \
+                       .replace('{{ height }}', str(CONFIG['height'])) \
+                       .replace('{{ fps }}', str(CONFIG['fps']))
 
 @app.route("/video")
 def video():
