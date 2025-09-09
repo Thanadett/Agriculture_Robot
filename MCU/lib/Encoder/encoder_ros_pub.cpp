@@ -79,12 +79,31 @@ static void enc_ros_fini_all()
   memset(&g_support, 0, sizeof(g_support));
 }
 
+// ===== utils: ตรวจสอบว่า layout ของ total ถูก init แล้วหรือยัง =====
+static void ensure_total_layout_initialized() {
+  // ถ้า dim ยังไม่พร้อม (size != 1) ให้ init ใหม่
+  if (g_msg_total.layout.dim.size != 1) {
+    // เคลียร์เดิมก่อน (กันหลุดหน่วยความจำถ้าเคย init)
+    std_msgs__msg__Float32MultiArray__fini(&g_msg_total);
+    std_msgs__msg__Float32MultiArray__init(&g_msg_total);
+
+    // สร้าง 1 มิติชื่อ "wheel"
+    std_msgs__msg__MultiArrayDimension__Sequence__init(&g_msg_total.layout.dim, 1);
+    rosidl_runtime_c__String__assign(&g_msg_total.layout.dim.data[0].label, "wheel");
+    g_msg_total.layout.dim.data[0].size   = 4;  // 4 ล้อ
+    g_msg_total.layout.dim.data[0].stride = 4;  // 1D array → stride = size
+    g_msg_total.layout.data_offset        = 0;  // เริ่มอ่านจาก index 0
+  }
+}
 
 // ====== timer callback เดิม ======
-static void timer_cb(rcl_timer_t * timer, int64_t)
-{
+static void timer_cb(rcl_timer_t * timer, int64_t) {
   (void)timer;
 
+  // 1) บังคับให้ layout พร้อมทุกครั้ง
+  ensure_total_layout_initialized();
+
+  // 2) อัปเดตตำแหน่ง/ความเร็ว/ระยะตามเดิม
   g_pos[W_FL] = (double)enc4.positionRad(W_FL);
   g_pos[W_FR] = (double)enc4.positionRad(W_FR);
   g_pos[W_RL] = (double)enc4.positionRad(W_RL);
@@ -100,30 +119,31 @@ static void timer_cb(rcl_timer_t * timer, int64_t)
   g_total[W_RL] = enc4.totalDistanceM(W_RL);
   g_total[W_RR] = enc4.totalDistanceM(W_RR);
 
-    // เติมเวลา (ใช้เวลาจาก agent ถ้ามี)
+  // เติม timestamp ให้ JointState (ตามที่คุณทำ)
   int64_t ns = rmw_uros_epoch_nanos();
   if (ns > 0) {
     g_msg_js.header.stamp.sec     = (int32_t)(ns / 1000000000LL);
     g_msg_js.header.stamp.nanosec = (uint32_t)(ns % 1000000000LL);
   } else {
-    // ถ้ายังไม่มี epoch ก็ปล่อยศูนย์ไปก่อน (หรือจะคำนวณจาก millis() ก็ได้)
     g_msg_js.header.stamp.sec = 0;
     g_msg_js.header.stamp.nanosec = 0;
   }
 
-  g_msg_js.name.data = nullptr; g_msg_js.name.size = 0; g_msg_js.name.capacity = 0;
+  // map buffer
   g_msg_js.position.data = g_pos; g_msg_js.position.size = 4; g_msg_js.position.capacity = 4;
   g_msg_js.velocity.data = g_vel; g_msg_js.velocity.size = 4; g_msg_js.velocity.capacity = 4;
-  g_msg_js.effort.data   = nullptr; g_msg_js.effort.size = 0; g_msg_js.effort.capacity = 0;
+  // effort คุณตั้งไว้เป็น 4 ช่องแล้วใน begin_serial()
 
   g_msg_total.data.data = g_total; g_msg_total.data.size = 4; g_msg_total.data.capacity = 4;
 
+  // publish
   rcl_ret_t rc1 = rcl_publish(&g_pub_js, &g_msg_js, nullptr);
   if (rc1 != RCL_RET_OK) { ++pub_fail_js; }
 
   rcl_ret_t rc2 = rcl_publish(&g_pub_total, &g_msg_total, nullptr);
   if (rc2 != RCL_RET_OK) { ++pub_fail_total; }
 }
+
 
 void enc_microros_begin_serial()
 {
@@ -192,6 +212,12 @@ void enc_microros_begin_serial()
   g_msg_total.layout.dim.data[0].size   = 4;
   g_msg_total.layout.dim.data[0].stride = 4;
   g_msg_total.layout.data_offset        = 0;
+
+  static double eff[4] = {0,0,0,0};
+  g_msg_js.effort.data = eff;
+  g_msg_js.effort.size = 4;
+  g_msg_js.effort.capacity = 4;
+
 
   // ---- Timer + Executor ----
   const unsigned period_ms = 100;  // 10 Hz
@@ -277,3 +303,6 @@ bool enc_agent_check_and_reconnect()
     return false;
   }
 }
+
+
+

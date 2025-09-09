@@ -3,7 +3,9 @@
 ros2 topic echo /enc/total 
 ros2 topic echo /enc/joint_states 
 */
-
+// position = มุมสะสมของล้อ rad
+//data = ระยะทางเชิงเส้น m
+//velocity = ความเร็วเชิงมุมของล้อ rad/s
 #ifdef Node2
 #include <Arduino.h>
 #include <micro_ros_platformio.h>
