@@ -1,5 +1,8 @@
 //ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/esp_node2 --ros-domain-id 69 
-
+/*
+ros2 topic echo /enc/total 
+ros2 topic echo /enc/joint_states 
+*/
 
 #ifdef Node2
 #include <Arduino.h>

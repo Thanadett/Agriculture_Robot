@@ -115,45 +115,46 @@ void enc_microros_begin_serial()
 {
   g_alloc = rcl_get_default_allocator();
 
-  // ---------- ตั้งค่า Domain ID = 69 ผ่าน init_options ----------
+  // ---- Domain ID = 69 ----
   rcl_init_options_t init_options = rcl_get_zero_initialized_init_options();
-  if (rcl_init_options_init(&init_options, g_alloc) != RCL_RET_OK) {
-    return;
-  }
+  if (rcl_init_options_init(&init_options, g_alloc) != RCL_RET_OK) return;
   if (rcl_init_options_set_domain_id(&init_options, 69) != RCL_RET_OK) {
     (void) rcl_init_options_fini(&init_options);
     return;
   }
 
-  // ใช้ init_options ที่ใส่ domain id แล้ว
   if (rclc_support_init_with_options(&g_support, 0, NULL, &init_options, &g_alloc) != RCL_RET_OK) {
     (void) rcl_init_options_fini(&init_options);
     return;
   }
   g_support_ok = true;
-
-  // init_options ไม่ต้องใช้ต่อแล้ว (cleanup)
   (void) rcl_init_options_fini(&init_options);
 
-  // ---------- node / publishers / timer / executor ----------
+  // ---- Node ----
   if (rclc_node_init_default(&g_node, "esp32_encoder_node", "", &g_support) != RCL_RET_OK) {
     enc_ros_fini_all(); return;
   }
   g_node_ok = true;
 
-  if (rclc_publisher_init_default(
+  // ---- Publishers ใช้ BEST_EFFORT เพื่อง่ายต่อการ echo ----
+  if (rclc_publisher_init_best_effort(
         &g_pub_js, &g_node,
         ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, JointState),
         "/enc/joint_states") != RCL_RET_OK) { enc_ros_fini_all(); return; }
   g_pub_js_ok = true;
 
-  if (rclc_publisher_init_default(
+  if (rclc_publisher_init_best_effort(
         &g_pub_total, &g_node,
         ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
         "/enc/total") != RCL_RET_OK) { enc_ros_fini_all(); return; }
   g_pub_total_ok = true;
 
-  const unsigned period_ms = 100;
+  // ---- เคลียร์ message struct (กันขยะใน sequence) ----
+  memset(&g_msg_js, 0, sizeof(g_msg_js));
+  memset(&g_msg_total, 0, sizeof(g_msg_total));
+
+  // ---- Timer + Executor ----
+  const unsigned period_ms = 100;  // 10 Hz
   if (rclc_timer_init_default(&g_timer, &g_support, RCL_MS_TO_NS(period_ms), timer_cb) != RCL_RET_OK) {
     enc_ros_fini_all(); return;
   }
@@ -167,7 +168,10 @@ void enc_microros_begin_serial()
   if (rclc_executor_add_timer(&g_exec, &g_timer) != RCL_RET_OK) {
     enc_ros_fini_all(); return;
   }
+
+  g_agent_state = AGENT_CONNECTED;
 }
+
 
 
 // ====== spin เดิม ======
