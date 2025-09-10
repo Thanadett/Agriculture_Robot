@@ -1,0 +1,46 @@
+ekf_localization_node:
+  ros__parameters:
+    two_d_mode: true
+    publish_tf: true
+    frequency: 50.0
+
+    # ------------- ODOM from wheels -------------
+    odom0: /wheel/odom
+    odom0_config: [true,  true,  false,
+                   false, false, true,    # yaw
+                   true,  false, false,
+                   false, false, true]    # yaw_rate (ถ้ามีใน msg จะถูกใช้)
+    odom0_differential: false
+    odom0_relative: false
+
+    # ------------- IMU -------------
+    imu0: /imu/data
+    imu0_config: [false, false, false,
+                  true,  true,  false,    # roll pitch
+                  true,  true,  false,    # ax ay
+                  true,  true,  true]     # gyro rates
+    imu0_remove_gravitational_acceleration: true
+    imu0_differential: false
+    imu0_relative: false
+
+    # ------------- Frame IDs -------------
+    base_link_frame: base_link
+    odom_frame: odom
+    map_frame: map
+    world_frame: odom
+
+    # ------------- Process noise (คร่าวๆ) -------------
+    process_noise_covariance: [0.10, 0,    0,    0,    0,    0,
+                               0,    0.10, 0,    0,    0,    0,
+                               0,    0,    1e6,  0,    0,    0,
+                               0,    0,    0,    1e6,  0,    0,
+                               0,    0,    0,    0,    1e6,  0,
+                               0,    0,    0,    0,    0,    0.05]
+
+    # Initial covariances (เริ่มคร่าวๆ แล้วค่อยจูน)
+    initial_estimate_covariance: [0.5,  0,    0,    0,    0,    0,
+                                  0,    0.5,  0,    0,    0,    0,
+                                  0,    0,    1e6,  0,    0,    0,
+                                  0,    0,    0,    1e6,  0,    0,
+                                  0,    0,    0,    0,    1e6,  0,
+                                  0,    0,    0,    0,    0,    0.2]

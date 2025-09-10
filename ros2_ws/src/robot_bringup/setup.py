@@ -17,6 +17,7 @@ setup(
          ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', glob('launch/*.py')),
+        ('share/' + package_name + '/config', ['config/ekf.yaml',]),
         ('lib/' + package_name, ['robot_bringup/run_camera.sh']),
     ],
     install_requires=[
@@ -38,6 +39,7 @@ setup(
             'serial_bridge = robot_bringup.serial_bridge:main',
             'camera_stream = robot_bringup.camera_stream:main',
             'encode_bridge = robot_bringup.encode_bridge:main',
+            'odom_imu_monitor = robot_bringup.odom_imu_monitor:main',
         ],
     },
     python_requires='>=3.12',
