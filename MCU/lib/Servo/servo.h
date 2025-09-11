@@ -1,0 +1,86 @@
+#pragma once
+#include <Arduino.h>
+#include <ESP32Servo.h>
+#include <math.h>
+
+
+// ===== Hardware pins =====
+
+// #define PIN_SERVO_TD8120MG 4
+// #define PIN_SERVO_360 0 //MG996R 360 continuous rotation servo
+// #define PIN_SERVO_180 2 //MG996R 180 standard servo
+
+// PWM pins of ESP32 
+//use PWM 50Hz
+constexpr int PIN__TD8120MG = 4;
+constexpr int PIN_MG996R_360 = 0; //MG996R 360 continuous rotation servo
+constexpr int PIN_MG996R = 2; //MG996R 180 standard servo
+
+const int min_p_width = 500; // the shortest pulse sent to a servo
+const int max_p_width = 2500; // the longest pulse sent to a servo
+const int default_p_width = 1500; // default pulse width
+const int hz = 50; // Analog servos run at ~50 Hz updates
+
+// decompose servo behaviors.
+enum class ServoKind { Positional180, Continuous360 };
+
+// ===== Pulse profiles =====
+//stop, max, min, Hz
+ServoProfile TD8120MG{min_p_width, max_p_width, default_p_width, hz};
+ServoProfile MG996R{min_p_width, max_p_width, default_p_width, hz};
+ServoProfile MG996R_360{600, 2400, default_p_width, hz};
+
+struct ServoProfile {
+  int us_min;
+  int us_max;
+  int us_center;    // for 180°: mechanical mid; for 360°: neutral stop
+  int us_hz;
+};
+
+// ===== Utility functions =====
+
+// แปลงองศา (0-180) เป็นไมโครวินาที ตามพารามิเตอร์โปรไฟล์
+int angleDegToUs(int deg, const ServoProfile& p);
+
+// แปลงเปอร์เซ็นต์ความเร็ว (-100 ถึง 100) เป็นไมโครวินาที ตามพารามิเตอร์โปรไฟล์
+int speedPercentToUs(int spd, const ServoProfile& p);
+
+// Unified interface used by both 180° and 360° servos.
+class UnifiedServo {
+public:
+  // Construct with type, GPIO pin, and profile.
+  UnifiedServo(ServoKind kind, int gpio, ServoProfile profile);
+
+  // Must be called once before use. Returns false if attach fails.
+  bool begin();
+
+  // -------- Common / shared controls --------
+  // Direct microsecond command (works for both 180° & 360°).
+  void setPulseUs(int us);
+
+  // Go to center (180°) or stop (360°).
+  void goCenterOrStop();
+
+  // Adjust center/neutral (useful for trimming 360° stop drift).
+  void nudgeCenterUs(int delta);
+
+  bool attached();
+  void detach();
+
+  // -------- Type-specific helpers --------
+  // 180° only: set absolute angle [0..180] degrees.
+  void setAngleDeg(int deg);
+
+  // 360° only: set speed percentage [-100..+100]; neg=reverse, pos=forward.
+  void setSpeedPercent(int spd);
+
+  // Diagnostics
+  ServoKind kind() const { return kind_; }
+  int pin() const { return pin_; }
+
+private:
+  Servo      s_; //s_ => servo object
+  ServoKind  kind_;
+  int        pin_;
+  ServoProfile p_;//p_ => pulse profile
+};
