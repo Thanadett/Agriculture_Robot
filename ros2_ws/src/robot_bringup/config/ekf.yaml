@@ -1,46 +1,140 @@
-ekf_localization_node:
+ekf_filter_node:
   ros__parameters:
+    frequency: 50.0
     two_d_mode: true
     publish_tf: true
-    frequency: 50.0
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom
 
-    # ------------- ODOM from wheels -------------
-    odom0: /wheel/odom
-    odom0_config: [true,  true,  false,
-                   false, false, true,    # yaw
-                   true,  false, false,
-                   false, false, true]    # yaw_rate (ถ้ามีใน msg จะถูกใช้)
+    # Odom จาก ESP32
+    odom0: wheel/odom
+    odom0_config:
+      [
+        true,
+        true,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+      ]
+    # เปิดใช้: x, y, yaw, vx, vyaw
+
     odom0_differential: false
     odom0_relative: false
 
-    # ------------- IMU -------------
-    imu0: /imu/data
-    imu0_config: [false, false, false,
-                  true,  true,  false,    # roll pitch
-                  true,  true,  false,    # ax ay
-                  true,  true,  true]     # gyro rates
-    imu0_remove_gravitational_acceleration: true
+    # IMU จาก ESP32 (MPU6050)
+    imu0: imu/data
+    imu0_config:
+      [
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+      ]
+    # ใช้ orientation (roll,pitch,yaw) + angular velocity z
+
     imu0_differential: false
-    imu0_relative: false
+    imu0_remove_gravitational_acceleration: true
 
-    # ------------- Frame IDs -------------
-    base_link_frame: base_link
-    odom_frame: odom
-    map_frame: map
-    world_frame: odom
+    # ค่ารบกวน (จูนภาคสนามได้)
+    process_noise_covariance:
+      [
+        0.05,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.05,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1e6,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.02,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.02,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.05,
+      ]
 
-    # ------------- Process noise (คร่าวๆ) -------------
-    process_noise_covariance: [0.10, 0,    0,    0,    0,    0,
-                               0,    0.10, 0,    0,    0,    0,
-                               0,    0,    1e6,  0,    0,    0,
-                               0,    0,    0,    1e6,  0,    0,
-                               0,    0,    0,    0,    1e6,  0,
-                               0,    0,    0,    0,    0,    0.05]
-
-    # Initial covariances (เริ่มคร่าวๆ แล้วค่อยจูน)
-    initial_estimate_covariance: [0.5,  0,    0,    0,    0,    0,
-                                  0,    0.5,  0,    0,    0,    0,
-                                  0,    0,    1e6,  0,    0,    0,
-                                  0,    0,    0,    1e6,  0,    0,
-                                  0,    0,    0,    0,    1e6,  0,
-                                  0,    0,    0,    0,    0,    0.2]
+    initial_estimate_covariance:
+      [
+        1e-3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1e-3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1e6,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1e-2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1e-2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1e-2,
+      ]
