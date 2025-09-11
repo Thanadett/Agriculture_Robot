@@ -39,6 +39,7 @@ setup(
             'serial_bridge = robot_bringup.serial_bridge:main',
             'camera_stream = robot_bringup.camera_stream:main',
             'encode_bridge = robot_bringup.encode_bridge:main',
+            'servo_bridge = robot_bringup.servo_bridge:main',
             'odom_imu_monitor = robot_bringup.odom_imu_monitor:main',
         ],
     },
