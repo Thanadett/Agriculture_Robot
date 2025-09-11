@@ -1,3 +1,4 @@
+#ifdef Node1
 #include <Arduino.h>
 
 // ---- micro-ROS ----
@@ -204,7 +205,7 @@ void loop(){
   // ประมวลผล micro-ROS
   rclc_executor_spin_some(&executor, RCL_MS_TO_NS(5));
 }
-
+#endif
 
 
 
