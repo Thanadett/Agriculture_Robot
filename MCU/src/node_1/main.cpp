@@ -1,8 +1,11 @@
 #include <Arduino.h>
+#include <string.h> // เพิ่มสำหรับ memset
+#include <ctype.h>  // --- PATCH: ใช้ isspace แทน isWhitespace
 
-// micro-ROS
 #include <micro_ros_platformio.h>
+
 #include <rcl/rcl.h>
+#include <rcl/error_handling.h>
 #include <rclc/rclc.h>
 #include <rclc/executor.h>
 
@@ -18,7 +21,7 @@
 #include "imu_node.h"
 #include "motorDrive.h"
 #if USE_BODY_PID_ESP32
-#include "pid.h"
+#include "controller/body_pid.h"
 #endif
 
 #ifndef M_PI
@@ -55,10 +58,19 @@ static float x_ = 0.0f, y_ = 0.0f, yaw_ = 0.0f;
 static float v_last = 0.0f, w_last = 0.0f;
 extern bool estop; // จาก motorDrive.h
 
-static inline int64_t now_nanos() { return (int64_t)micros() * 1000LL; }
+// --- PATCH: ใช้ epoch time ของ micro-ROS ถ้ามี time sync; ถ้าไม่มี fallback ไป micros()
+extern "C" int64_t rmw_uros_epoch_nanos(void); // ถ้าไม่มี time sync จะคืน 0
+static inline int64_t now_nanos()
+{
+  int64_t t = rmw_uros_epoch_nanos();
+  if (t > 0)
+    return t;
+  return (int64_t)micros() * 1000LL; // fallback (อาจ overflow ทุก ~71 นาที)
+}
 
 // ----- Serial commands (optional) -----
 #if CMD_SERIAL_ENABLE
+// rx_line ถูก declare เป็น extern ใน motorDrive.h แล้ว - ไม่ต้อง declare ซ้ำ
 static bool startsWith_(const String &s, const char *p)
 {
   size_t n = strlen(p);
@@ -71,7 +83,8 @@ static bool parseFloatAfterEquals_(const String &s, const char *key, float &out)
     return false;
   idx += strlen(key);
   int end = idx;
-  while (end < (int)s.length() && !isWhitespace(s[end]))
+  // --- PATCH: ใช้ isspace() มาตรฐานแทน isWhitespace
+  while (end < (int)s.length() && !isspace((unsigned char)s[end]))
     end++;
   out = s.substring(idx, end).toFloat();
   return true;
@@ -81,6 +94,7 @@ static void handleLine_(String line)
   line.trim();
   if (line.isEmpty())
     return;
+
   if (startsWith_(line, "ESTOP"))
   {
     int sp = line.indexOf(' '), val = 1;
@@ -93,6 +107,7 @@ static void handleLine_(String line)
     estop = (val != 0);
     return;
   }
+
   if (startsWith_(line, "VW"))
   {
     float V = 0, W = 0;
@@ -134,6 +149,14 @@ static void cmdvel_cb(const void *msgin)
   auto msg = (const geometry_msgs__msg__Twist *)msgin;
   v_cmd = (float)msg->linear.x;
   w_cmd = (float)msg->angular.z;
+
+// --- PATCH: ป้องกันคำสั่งหลุดขอบ (ถ้ากำหนดไว้ใน config.h)
+#ifdef BODY_V_MAX
+  v_cmd = constrain(v_cmd, -BODY_V_MAX, BODY_V_MAX);
+#endif
+#ifdef BODY_W_MAX
+  w_cmd = constrain(w_cmd, -BODY_W_MAX, BODY_W_MAX);
+#endif
 }
 static void estop_cb(const void *msgin)
 {
@@ -162,6 +185,7 @@ static void control_timer_cb(rcl_timer_t *, int64_t)
   x_ += v_last * cosf(yaw_) * dt;
   y_ += v_last * sinf(yaw_) * dt;
   yaw_ += w_last * dt;
+
   if (yaw_ > M_PI)
     yaw_ -= 2.0f * M_PI;
   if (yaw_ < -M_PI)
@@ -177,6 +201,7 @@ static void odom_timer_cb(rcl_timer_t *, int64_t)
   odom_msg.pose.pose.position.x = x_;
   odom_msg.pose.pose.position.y = y_;
   odom_msg.pose.pose.position.z = 0.0f;
+
   const float cy = cosf(yaw_ * 0.5f), sy = sinf(yaw_ * 0.5f);
   odom_msg.pose.pose.orientation.x = 0;
   odom_msg.pose.pose.orientation.y = 0;
@@ -184,22 +209,33 @@ static void odom_timer_cb(rcl_timer_t *, int64_t)
   odom_msg.pose.pose.orientation.w = cy;
 
   odom_msg.twist.twist.linear.x = v_last;
+  odom_msg.twist.twist.linear.y = 0.0f;
+  odom_msg.twist.twist.linear.z = 0.0f;
+  odom_msg.twist.twist.angular.x = 0.0f;
+  odom_msg.twist.twist.angular.y = 0.0f;
   odom_msg.twist.twist.angular.z = w_last;
 
-  rcl_publish(&odom_pub, &odom_msg, NULL);
+  rcl_ret_t ret = rcl_publish(&odom_pub, &odom_msg, NULL);
+  if (ret != RCL_RET_OK)
+  {
+    // Handle publish error if needed
+  }
 }
 
 // --------- setup / loop ----------
 void setup()
 {
   Serial.begin(115200);
-  delay(50);
+  delay(2000); // เพิ่ม delay ให้มากขึ้น
+
+  // Initialize micro-ROS transport
   set_microros_serial_transports(Serial);
+  delay(500); // รอให้ transport พร้อม
 
   // motorDrive เดิม (ปรับให้มัน include "config.h")
   motorDrive_begin();
 
-  // Encoder
+  // Initialize encoder
   enc.setQuadMode(ENCODER_QUAD_MODE_FULL ? QUAD_FULL : QUAD_HALF);
   enc.setWheelRadius(WHEEL_RADIUS_M);
   enc.setTrack(TRACK_M);
@@ -211,27 +247,54 @@ void setup()
     enc.setVelFilterButter2(BW2_FC_HZ, BW2_FS_HZ);
   enc.begin(true);
 
-  // micro-ROS
+  // Initialize micro-ROS (support/node)
   allocator = rcl_get_default_allocator();
-  rclc_support_init(&support, 0, NULL, &allocator);
-  rclc_node_init_default(&node, "esp32_robot_node", "", &support);
 
-  rclc_publisher_init_default(
+  rcl_ret_t ret = rclc_support_init(&support, 0, NULL, &allocator);
+  if (ret != RCL_RET_OK)
+  {
+    Serial.println("ERROR: rclc_support_init failed");
+    return;
+  }
+
+  ret = rclc_node_init_default(&node, "esp32_robot_node", "", &support);
+  if (ret != RCL_RET_OK)
+  {
+    Serial.println("ERROR: rclc_node_init_default failed");
+    return;
+  }
+
+  // Initialize publisher
+  ret = rclc_publisher_init_default(
       &odom_pub, &node,
       ROSIDL_GET_MSG_TYPE_SUPPORT(nav_msgs, msg, Odometry),
       "wheel/odom");
+  if (ret != RCL_RET_OK)
+  {
+    Serial.println("ERROR: rclc_publisher_init_default failed");
+    return;
+  }
 
-  // frame IDs ตั้งครั้งเดียว
-  odom_msg.header.frame_id = (rosidl_runtime_c__String){0};
-  odom_msg.child_frame_id = (rosidl_runtime_c__String){0};
-  rosidl_runtime_c__String__assign(&odom_msg.header.frame_id, ODOM_FRAME);
-  rosidl_runtime_c__String__assign(&odom_msg.child_frame_id, BASE_FRAME);
+  // --- PATCH: ใช้ __init เพื่อ init ภายใน struct (รวม string)
+  nav_msgs__msg__Odometry__init(&odom_msg);
 
-  // covariance ตั้งคร่าวๆ
+  // --- PATCH: assign string แล้วเช็คผลเป็น bool (true=ok)
+  if (!rosidl_runtime_c__String__assign(&odom_msg.header.frame_id, ODOM_FRAME))
+  {
+    Serial.println("ERROR: Failed to assign odom frame_id");
+    return;
+  }
+  if (!rosidl_runtime_c__String__assign(&odom_msg.child_frame_id, BASE_FRAME))
+  {
+    Serial.println("ERROR: Failed to assign child frame_id");
+    return;
+  }
+
+  // Initialize covariance matrices
   for (int i = 0; i < 36; i++)
   {
-    odom_msg.pose.covariance[i] = 0;
-    odom_msg.twist.covariance[i] = 0;
+    odom_msg.pose.covariance[i] = 0.0;
+    odom_msg.twist.covariance[i] = 0.0;
   }
   odom_msg.pose.covariance[0] = 0.05f * 0.05f;                                     // x
   odom_msg.pose.covariance[7] = 0.05f * 0.05f;                                     // y
@@ -239,17 +302,91 @@ void setup()
   odom_msg.twist.covariance[0] = 0.10f * 0.10f;                                    // vx
   odom_msg.twist.covariance[35] = (3.0f * M_PI / 180.0f) * (3.0f * M_PI / 180.0f); // wz
 
-  // subs
-  rclc_subscription_init_default(
+  // Initialize cmd_vel & estop message (ศูนย์ค่าเริ่มต้น)
+  memset(&cmdvel_msg, 0, sizeof(cmdvel_msg));
+  memset(&estop_msg, 0, sizeof(estop_msg));
+
+  // Initialize subscriptions
+  ret = rclc_subscription_init_default(
       &cmdvel_sub, &node,
       ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
       "cmd_vel");
-  rclc_subscription_init_default(
+  if (ret != RCL_RET_OK)
+  {
+    Serial.println("ERROR: cmdvel subscription init failed");
+    return;
+  }
+
+  ret = rclc_subscription_init_default(
       &estop_sub, &node,
       ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
       "estop");
+  if (ret != RCL_RET_OK)
+  {
+    Serial.println("ERROR: estop subscription init failed");
+    return;
+  }
 
-  // IMU
+  // Initialize timers
+  ret = rclc_timer_init_default(
+      &control_timer, &support,
+      RCL_MS_TO_NS((int)(1000.0f / CONTROL_HZ)),
+      control_timer_cb);
+  if (ret != RCL_RET_OK)
+  {
+    Serial.println("ERROR: control timer init failed");
+    return;
+  }
+
+  ret = rclc_timer_init_default(
+      &odom_timer, &support,
+      RCL_MS_TO_NS((int)(1000.0f / ODOM_HZ)),
+      odom_timer_cb);
+  if (ret != RCL_RET_OK)
+  {
+    Serial.println("ERROR: odom timer init failed");
+    return;
+  }
+
+  // --- PATCH: ต้อง init executor "ก่อน" imu.init(...) และกัน handle ให้พอ (เผื่อ IMU)
+  const size_t EXEC_HANDLES = 8; // 2 timers + 2 subs + (IMU pub+timer) + margin
+  ret = rclc_executor_init(&executor, &support.context, EXEC_HANDLES, &allocator);
+  if (ret != RCL_RET_OK)
+  {
+    Serial.println("ERROR: executor init failed");
+    return;
+  }
+
+  // Add components to executor (ของ main)
+  ret = rclc_executor_add_timer(&executor, &control_timer);
+  if (ret != RCL_RET_OK)
+  {
+    Serial.println("ERROR: add control timer failed");
+    return;
+  }
+
+  ret = rclc_executor_add_timer(&executor, &odom_timer);
+  if (ret != RCL_RET_OK)
+  {
+    Serial.println("ERROR: add odom timer failed");
+    return;
+  }
+
+  ret = rclc_executor_add_subscription(&executor, &cmdvel_sub, &cmdvel_msg, &cmdvel_cb, ON_NEW_DATA);
+  if (ret != RCL_RET_OK)
+  {
+    Serial.println("ERROR: add cmdvel subscription failed");
+    return;
+  }
+
+  ret = rclc_executor_add_subscription(&executor, &estop_sub, &estop_msg, &estop_cb, ON_NEW_DATA);
+  if (ret != RCL_RET_OK)
+  {
+    Serial.println("ERROR: add estop subscription failed");
+    return;
+  }
+
+  // Initialize IMU (หลัง executor พร้อมแล้ว เพื่อให้ imu เพิ่ม handle ของตัวเองได้)
   ImuPublisher::Params ip;
   ip.sda = I2C_SDA_PIN;
   ip.scl = I2C_SCL_PIN;
@@ -257,7 +394,7 @@ void setup()
   ip.frame_id = IMU_FRAME;
   ip.cf_alpha = CF_ALPHA;
   ip.calib_samples = IMU_CALIB_SAMPLES;
-  imu.init(ip, &node, &support, &executor);
+  imu.init(ip, &node, &support, &executor); // --- PATCH: ย้ายมาหลัง executor_init & add ของหลักแล้ว
 
 #if USE_BODY_PID_ESP32
   body.setGainsLinear(BODY_KP_V, BODY_KI_V, BODY_KD_V);
@@ -266,23 +403,6 @@ void setup()
   body.setImuWeight(BODY_IMU_WEIGHT);
   body.setIClamp(BODY_I_V_ABS, BODY_I_W_ABS);
 #endif
-
-  // timers
-  rclc_timer_init_default(
-      &control_timer, &support,
-      RCL_MS_TO_NS((int)(1000.0f / CONTROL_HZ)),
-      control_timer_cb);
-  rclc_timer_init_default(
-      &odom_timer, &support,
-      RCL_MS_TO_NS((int)(1000.0f / ODOM_HZ)),
-      odom_timer_cb);
-
-  // executor
-  rclc_executor_init(&executor, &support.context, 5, &allocator);
-  rclc_executor_add_timer(&executor, &control_timer);
-  rclc_executor_add_timer(&executor, &odom_timer);
-  rclc_executor_add_subscription(&executor, &cmdvel_sub, &cmdvel_msg, &cmdvel_cb, ON_NEW_DATA);
-  rclc_executor_add_subscription(&executor, &estop_sub, &estop_msg, &estop_cb, ON_NEW_DATA);
 
   Serial.println(
 #if USE_BODY_PID_ESP32

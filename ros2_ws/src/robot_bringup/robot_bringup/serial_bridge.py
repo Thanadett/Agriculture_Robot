@@ -9,7 +9,7 @@ import threading
 class SerialBridge(Node):
     def __init__(self):
         super().__init__('serial_bridge')
-        self.declare_parameter('port', '/dev/ttyUSB0')
+        self.declare_parameter('port', '/dev/esp_node1')
         self.declare_parameter('baud', 115200)
         self.declare_parameter('max_linear', 255.0)
         self.declare_parameter('max_angular', 255.0)

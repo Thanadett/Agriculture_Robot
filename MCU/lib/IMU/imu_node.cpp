@@ -2,19 +2,27 @@
 #include <math.h>
 #include "rosidl_runtime_c/string.h"
 #include "rosidl_runtime_c/string_functions.h"
+#include <rclc/rclc.h>
+#include <rclc/executor.h>
+#include <rclc/timer.h> // --- PATCH: ใช้ default2
 
 static ImuPublisher *g_self = nullptr;
 
-// ==================== Utilities ====================
-int64_t ImuPublisher::now_nanos() { return (int64_t)micros() * 1000LL; }
+#ifndef DEG_TO_RAD
+#define DEG_TO_RAD (M_PI / 180.0)
+#endif
 
+// ==================== Utilities ====================
+int64_t ImuPublisher::now_nanos() { return (int64_t)micros() * 1000LL; } // ใช้ micros() → ns (fallback)
+
+// ตั้งค่าคูณแนวทแยงสำหรับ covariance (double[9])
 void ImuPublisher::set_cov_diag(double cov[9], double rx, double ry, double rz)
 {
   for (int i = 0; i < 9; i++)
     cov[i] = 0.0;
-  cov[0] = rx;
-  cov[4] = ry;
-  cov[8] = rz;
+  cov[0] = rx; // xx
+  cov[4] = ry; // yy
+  cov[8] = rz; // zz
 }
 
 void ImuPublisher::euler_to_quat(float r, float p, float y, float &qx, float &qy, float &qz, float &qw)
@@ -61,7 +69,7 @@ bool ImuPublisher::imu_setup_and_calibrate_()
 }
 
 // ==================== Timer Callback ====================
-void ImuPublisher::timer_cb_(rcl_timer_t * /*timer*/, int64_t)
+void ImuPublisher::timer_cb_(rcl_timer_t * /*timer*/, int64_t /*last_call_time*/)
 {
   if (!g_self || !g_self->imu_ready_)
     return;
@@ -83,11 +91,11 @@ void ImuPublisher::timer_cb_(rcl_timer_t * /*timer*/, int64_t)
   float gz = g.gyro.z - self.gbz_;
   self.gz_ = gz;
 
-  // --- Roll / Pitch from accel ---
+  // --- Roll / Pitch จาก accel ---
   float roll_acc = atan2f(ay, az);
   float pitch_acc = atan2f(-ax, sqrtf(ay * ay + az * az));
 
-  // --- Roll / Pitch / Yaw from gyro ---
+  // --- Roll / Pitch / Yaw จาก gyro ---
   float roll_gyro = self.roll_ + gx * DT;
   float pitch_gyro = self.pitch_ + gy * DT;
   float yaw_gyro = self.yaw_ + gz * DT;
@@ -118,11 +126,14 @@ void ImuPublisher::timer_cb_(rcl_timer_t * /*timer*/, int64_t)
   self.imu_msg_.angular_velocity.x = gx;
   self.imu_msg_.angular_velocity.y = gy;
   self.imu_msg_.angular_velocity.z = gz;
+
   self.imu_msg_.linear_acceleration.x = ax;
   self.imu_msg_.linear_acceleration.y = ay;
   self.imu_msg_.linear_acceleration.z = az;
 
-  rcl_publish(&self.imu_pub_, &self.imu_msg_, NULL);
+  // --- PATCH: เก็บผลลัพธ์ publish กัน warning และตรวจเช็คได้ภายหลัง
+  rcl_ret_t pub_ret = rcl_publish(&self.imu_pub_, &self.imu_msg_, nullptr);
+  (void)pub_ret;
 }
 
 // ==================== Initialization ====================
@@ -134,40 +145,56 @@ bool ImuPublisher::init(const Params &p,
   params_ = p;
   g_self = this;
 
+  // --- I2C ---
   Wire.begin(params_.sda, params_.scl);
   Wire.setClock(400000);
 
   imu_ready_ = imu_setup_and_calibrate_();
 
+  // --- Init message ให้ครบถ้วนก่อนใช้งาน
+  sensor_msgs__msg__Imu__init(&imu_msg_);
+
   // --- ROS2 publisher ---
-  rclc_publisher_init_default(
+  rcl_ret_t ret = rclc_publisher_init_default(
       &imu_pub_, node,
       ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, Imu),
       "imu/data");
+  if (ret != RCL_RET_OK)
+    return false;
 
   // --- Header frame id ---
-  imu_msg_.header.frame_id = rosidl_runtime_c__String{};
-  rosidl_runtime_c__String__assign(&imu_msg_.header.frame_id, params_.frame_id);
+  // imu_msg_.header.frame_id ถูก __init แล้ว สามารถ assign ได้เลย
+  if (!rosidl_runtime_c__String__assign(&imu_msg_.header.frame_id, params_.frame_id))
+  {
+    return false;
+  }
 
   // --- Covariance (double) ---
   auto sq = [](double x)
   { return x * x; };
-  double ori_cov_rp = sq(2.0 * DEG_TO_RAD);
-  double ori_cov_y = sq(6.0 * DEG_TO_RAD);
-  double ang_cov = sq(2.5);
-  double lin_cov = sq(0.4);
+  double ori_cov_rp = sq(2.0 * DEG_TO_RAD); // roll/pitch ~ 2 deg
+  double ori_cov_y = sq(6.0 * DEG_TO_RAD);  // yaw ~ 6 deg (จาก gyro-only)
+  double ang_cov = sq(2.5);                 // rad/s
+  double lin_cov = sq(0.4);                 // m/s^2
 
   set_cov_diag(imu_msg_.orientation_covariance, ori_cov_rp, ori_cov_rp, ori_cov_y);
   set_cov_diag(imu_msg_.angular_velocity_covariance, ang_cov, ang_cov, ang_cov);
   set_cov_diag(imu_msg_.linear_acceleration_covariance, lin_cov, lin_cov, lin_cov);
 
-  // --- Timer ---
-  rclc_timer_init_default(
+  // --- Timer (ใช้ default2 + autostart=true) ---
+  const uint64_t period_ns = RCL_MS_TO_NS((int)(1000.0f / params_.loop_hz));
+  ret = rclc_timer_init_default2(
       &timer_, support,
-      RCL_MS_TO_NS((int)(1000.0f / params_.loop_hz)),
-      timer_cb_);
+      period_ns,
+      ImuPublisher::timer_cb_,
+      true /* autostart */);
+  if (ret != RCL_RET_OK)
+    return false;
 
-  rclc_executor_add_timer(executor, &timer_);
+  // --- Add timer เข้า executor ---
+  ret = rclc_executor_add_timer(executor, &timer_);
+  if (ret != RCL_RET_OK)
+    return false;
 
   return imu_ready_;
 }
