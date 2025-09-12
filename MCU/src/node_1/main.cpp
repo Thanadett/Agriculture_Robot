@@ -421,7 +421,6 @@ void loop()
 #endif
   rclc_executor_spin_some(&executor, RCL_MS_TO_NS(2));
 }
-<<<<<<< HEAD
 #endif
 
 
@@ -463,5 +462,3 @@ void loop()
 //   delay(2);
 // }
 // #endif
-=======
->>>>>>> 221dcac2a572fb90c4496d49932c8aed48063a51
