@@ -9,7 +9,7 @@ class ServoBridge(Node):
         super().__init__('servo_bridge')
 
         # parameters
-        self.declare_parameter('port', '/dev/ttyUSB1')
+        self.declare_parameter('port', '/dev/ttyUSB0')
         self.declare_parameter('baud', 115200)
         self.declare_parameter('topic', '/servo_cmd')
 

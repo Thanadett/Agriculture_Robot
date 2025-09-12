@@ -5,6 +5,7 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, qos_profile_sensor_data
 from sensor_msgs.msg import Joy
 from std_msgs.msg import String
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, qos_profile_sensor_data
 
 class JoystickButtons(Node):
     def __init__(self):
@@ -27,8 +28,11 @@ class JoystickButtons(Node):
         self.debounce_ms = int(p('debounce_ms').integer_value)
 
         # ---- Pub/Sub ----
-        qos = QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
-                         history=HistoryPolicy.KeepLast, depth=10)
+        qos = QoSProfile(
+        reliability=ReliabilityPolicy.RELIABLE,
+        history=HistoryPolicy.KEEP_LAST, 
+        depth=10
+        )
         self.pub_servo = self.create_publisher(String, servo_topic, qos_profile=qos)
         self.sub_joy = self.create_subscription(Joy, joy_topic, self.cb_joy,
                                                 qos_profile=qos_profile_sensor_data)
@@ -82,6 +86,7 @@ def main():
     finally:
         node.destroy_node()
         rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

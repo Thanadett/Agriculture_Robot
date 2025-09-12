@@ -57,11 +57,6 @@ class JoystickTeleop(Node):
         self.declare_parameter('ramp_rate_angular', 250.0)
         self.declare_parameter('joy_timeout_ms', 800)
 
-        #---------------- Servo buttons ----------------
-        # self.declare_parameter('btn_a', 0) # A
-        # self.declare_parameter('btn_b', 1) # B
-        # self.declare_parameter('btn_x', 2) # X
-
         # ---------- Read params ----------
         def p(k): return self.get_parameter(k).get_parameter_value()
         joy_topic = p('joy_topic').string_value
@@ -84,11 +79,6 @@ class JoystickTeleop(Node):
         self.ramp_ang = float(p('ramp_rate_angular').double_value)
         self.joy_to_ms = int(p('joy_timeout_ms').integer_value)
 
-    
-        # self.btn_a = int(p('btn_a').integer_value)
-        # self.btn_b = int(p('btn_b').integer_value)
-        # self.btn_x = int(p('btn_x').integer_value)
-
 
         # ---------- Pub/Sub ----------
         cmd_qos = QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
@@ -97,9 +87,6 @@ class JoystickTeleop(Node):
             Twist, cmd_vel_topic, qos_profile=cmd_qos)
         self.sub_joy = self.create_subscription(
             Joy, joy_topic, self.cb_joy, qos_profile=qos_profile_sensor_data)
-        # servo ctrl publisher
-        # self.pub_servo = self.create_publisher(String, '/servo_cmd', qos_profile=cmd_qos)
-
 
         # ---------- State ----------
         self.last_joy_time = 0.0
@@ -111,12 +98,6 @@ class JoystickTeleop(Node):
         self.v_target = 0.0
         self.w_target = 0.0
         self.t_last = time.monotonic()
-
-        # ---------- button state ----------
-        # self._prev_btn_a = 0 #previous state
-        # self._prev_btn_b = 0
-        # self._prev_btn_x = 0
-
 
         # ส่งที่ ~50 Hz
         self.timer = self.create_timer(0.02, self.tick)
@@ -141,32 +122,6 @@ class JoystickTeleop(Node):
     def cb_joy(self, msg: Joy):
         now = time.monotonic()
         self.last_joy_time = now
-
-        # ---------- publish button events ----------
-        btn_a = self._btn(msg, self.btn_a)
-        btn_b = self._btn(msg, self.btn_b)
-        btn_x = self._btn(msg, self.btn_x)
-
-        # A: press/release
-        if btn_a == 1 and self._prev_btn_a == 0:
-            self.pub_button.publish(String(data='BTN A=DOWN'))
-        elif btn_a == 0 and self._prev_btn_a == 1:
-            self.pub_button.publish(String(data='BTN A=UP'))
-        # B: press/release
-        if btn_b == 1 and self._prev_btn_b == 0:
-            self.pub_button.publish(String(data='BTN B=DOWN'))
-        elif btn_b == 0 and self._prev_btn_b == 1:
-            self.pub_button.publish(String(data='BTN B=UP'))
-        # X: press/release
-        if btn_x == 1 and self._prev_btn_x == 0:
-            self.pub_button.publish(String(data='BTN X=DOWN'))
-        elif btn_x == 0 and self._prev_btn_x == 1:
-            self.pub_button.publish(String(data='BTN X=UP'))
-
-        # update previous states
-        self._prev_btn_a = btn_a
-        self._prev_btn_b = btn_b
-        self._prev_btn_x = btn_x
 
         if self._btn(msg, self.btn_estop):
             self.v_target = 0.0
