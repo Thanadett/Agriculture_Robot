@@ -23,6 +23,22 @@ def generate_launch_description():
             parameters=[{'autorepeat_rate': 50.0, 'deadzone': LaunchConfiguration('deadzone')}],
         ),
 
+        # ---------- Servo Buttons (publish /servo_cmd) ----------
+        Node(
+            package='robot_bringup',      
+            executable='servo_joy',
+            name='servo_joy',
+            output='screen',
+            parameters=[{
+                'joy_topic': LaunchConfiguration('joy_topic'),
+                'servo_cmd_topic': '/servo_cmd',
+                'btn_a': 0,
+                'btn_b': 1,
+                'btn_x': 2,
+                'debounce_ms': 20
+            }],
+        ),
+
         # Teleop node
         Node(
             package='robot_bringup',
@@ -44,5 +60,13 @@ def generate_launch_description():
                 'axis_left_y': 1,
                 'axis_right_x': 3
             }],
+        ),
+
+        # ---------- Serial Bridge for Servo ----------
+        Node(
+            package='robot_bringup',     
+            executable='servo_bridge',
+            name='servo_bridge',
+            output='screen',
         ),
     ])

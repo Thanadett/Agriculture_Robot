@@ -21,14 +21,6 @@ const int max_p_width = 2500; // the longest pulse sent to a servo
 const int default_p_width = 1500; // default pulse width
 const int hz = 50; // Analog servos run at ~50 Hz updates
 
-// decompose servo behaviors.
-enum class ServoKind { Positional180, Continuous360 };
-
-// ===== Pulse profiles =====
-//stop, max, min, Hz
-ServoProfile TD8120MG{min_p_width, max_p_width, default_p_width, hz};
-ServoProfile MG996R{min_p_width, max_p_width, default_p_width, hz};
-ServoProfile MG996R_360{600, 2400, default_p_width, hz};
 
 struct ServoProfile {
   int us_min;
@@ -36,6 +28,9 @@ struct ServoProfile {
   int us_center;    // for 180°: mechanical mid; for 360°: neutral stop
   int us_hz;
 };
+
+// decompose servo behaviors.
+enum class ServoKind { Positional180, Continuous360 };
 
 // ===== Utility functions =====
 
@@ -84,3 +79,36 @@ private:
   int        pin_;
   ServoProfile p_;//p_ => pulse profile
 };
+// servo.h (ส่วนประกาศ)
+  extern UnifiedServo TD8120MG;    // 360°
+  extern UnifiedServo MG996R_360;  // 360°
+  extern UnifiedServo MG996R;      // 180°
+//----------------------------- button ----------------------------------------
+
+// callback: down = true/false, servo = target instance
+using BTN_handler = void(*)(bool down, UnifiedServo& servo);
+
+struct BTN_handlers {
+  BTN_handler onA = nullptr;
+  BTN_handler onB = nullptr;
+  BTN_handler onX = nullptr;
+};
+
+// helper: case-insensitive startsWith
+static inline bool _startsWith(const String &s, const char *p);
+// helper: parse token after "key="
+static inline bool _parseTokenAfterEquals(const String &s, const char *key, String &out);
+
+// set handler in setup()
+void button_set_handlers(const BTN_handlers& h);
+
+// manage 1 received line; turns true when done (prefix "BTN")
+inline bool button_handle_line(const String& line);
+
+// poll from Serial 
+void button_serial_poll();
+
+// ------------- button ctrl -------------
+void onBtnA(bool down, UnifiedServo& servo);
+void onBtnB(bool down, UnifiedServo& servo);
+void onBtnX(bool down, UnifiedServo& servo);

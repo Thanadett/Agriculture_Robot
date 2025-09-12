@@ -12,4 +12,11 @@ TD-8120MG (360):
     Rotating direction Counterclockwise ( 1000～2000usec)
 
 MG996R (180):
+    Pulse width range   ( 500～2500usec)
+
+
+Xbox mapping:
+    A = 0
+    B = 1
+    X = 2
     
