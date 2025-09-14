@@ -62,11 +62,4 @@ def generate_launch_description():
             }],
         ),
 
-        # ---------- Serial Bridge for Servo ----------
-        Node(
-            package='robot_bringup',     
-            executable='servo_bridge',
-            name='servo_bridge',
-            output='screen',
-        ),
     ])

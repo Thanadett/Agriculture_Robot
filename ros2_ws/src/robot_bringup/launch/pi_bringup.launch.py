@@ -9,7 +9,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
     return LaunchDescription([
         # Serial to ESP32
-        DeclareLaunchArgument('port_serial', default_value='/dev/esp_node1'),
+        DeclareLaunchArgument('port_serial', default_value='/dev/esp32_node1'),
         DeclareLaunchArgument('baud', default_value='115200'),
         DeclareLaunchArgument('max_linear', default_value='255.0'),
         DeclareLaunchArgument('max_angular', default_value='255.0'),
@@ -35,6 +35,13 @@ def generate_launch_description():
                 'units_dist': 'm',        # 'm' or 'mm'
                 'enable_log': False,      # << สวิตช์ เปิด/ปิด log
             }],
+        ),
+        # ---------- Serial Bridge for Servo ----------
+        Node(
+            package='robot_bringup',     
+            executable='servo_bridge',
+            name='servo_bridge',
+            output='screen',
         ),
 
         # Camera Stream (Flask)
