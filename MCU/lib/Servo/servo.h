@@ -12,8 +12,8 @@
 
 // PWM pins of ESP32 
 //use PWM 50Hz
-constexpr int PIN__TD8120MG = 4;
-constexpr int PIN_MG996R_360 = 0; //MG996R 360 continuous rotation servo
+constexpr int PIN__TD8120MG = 16;
+constexpr int PIN_MG996R_360 = 15; //MG996R 360 continuous rotation servo
 constexpr int PIN_MG996R = 2; //MG996R 180 standard servo
 
 const int min_p_width = 500; // the shortest pulse sent to a servo

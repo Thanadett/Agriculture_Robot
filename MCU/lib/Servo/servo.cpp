@@ -16,16 +16,16 @@ ServoProfile MG996R_360_pf{min_p_width, max_p_width, default_p_width, hz};
 
  // Instances
 UnifiedServo TD8120MG   (ServoKind::Continuous360,  PIN__TD8120MG, TD8120MG_pf);
-UnifiedServo MG996R     (ServoKind::Positional180,  PIN_MG996R, MG996R_360_pf);
-UnifiedServo MG996R_360 (ServoKind::Continuous360,  PIN_MG996R_360, MG996R_pf);
+UnifiedServo MG996R     (ServoKind::Positional180,  PIN_MG996R, MG996R_pf);
+UnifiedServo MG996R_360 (ServoKind::Continuous360,  PIN_MG996R_360, MG996R_360_pf);
 
 
-
+int channel_ = -1;
 bool UnifiedServo::begin() {
   s_.setPeriodHertz(p_.us_hz);              // keep ~50 Hz for standard RC servos
-  return s_.attach(pin_, p_.us_min, p_.us_max);  // clamp range & reduce jitter
+  int channel_ = s_.attach(pin_, p_.us_min, p_.us_max);  // clamp range & reduce jitter
+  return channel_;                        //channel => 0 - 15 , = 0 if fail
 }
-
 // -------- Common / shared controls --------
 
 // Direct microsecond command (works for both 180° & 360°).
@@ -153,9 +153,10 @@ void button_serial_poll() {
 void onBtnA(bool down, UnifiedServo& servoType) {
   if (servoType.kind() == ServoKind::Positional180) {
     if(down){
-      Serial.println("A down");
+      Serial.println("To 180");
       servoType.setAngleDeg(180);
     }else {
+      Serial.println("To 0");
       servoType.setAngleDeg(0);
     }
   }
@@ -163,9 +164,10 @@ void onBtnA(bool down, UnifiedServo& servoType) {
 void onBtnB(bool down,  UnifiedServo& servoType) {
   if (servoType.kind() == ServoKind::Continuous360) {
     if (down) {
-      Serial.println("B down");
+      Serial.println("forward");
       servoType.setSpeedPercent(+50); // forward
     } else {
+      Serial.println("stop");
       servoType.goCenterOrStop();     // stop
     }
   }
@@ -173,9 +175,10 @@ void onBtnB(bool down,  UnifiedServo& servoType) {
 void onBtnX(bool down,  UnifiedServo& servoType) {
   if (servoType.kind() == ServoKind::Positional180) {
     if(down){
-      Serial.println("X down");
+      Serial.println("to 90");
       servoType.setAngleDeg(90);
     }else {
+      Serial.println("To 0");
       servoType.setAngleDeg(0);
     }
   }

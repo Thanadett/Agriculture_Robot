@@ -18,6 +18,23 @@ void setup() {
   MG996R_360.begin();
   MG996R.begin();
 
+  //======================== debug info ========================
+  int ch_1 = TD8120MG.begin();
+  int ch_2 = MG996R_360.begin();
+  int ch_3 = MG996R.begin();
+  if (ch_3 >= 0)
+    Serial.printf("MG996R attached on channel %d (pin=%d)\n", ch_3, MG996R.pin());
+  else
+    Serial.printf("MG996R attach FAILED (pin=%d)\n", MG996R.pin());
+  if (ch_2 >= 0)
+    Serial.printf("MG996R_360 attached on channel %d (pin=%d)\n", ch_2, MG996R_360.pin());
+  else
+    Serial.printf("MG996R_360 attach FAILED (pin=%d)\n", MG996R_360.pin());
+  if (ch_1 >= 0)
+    Serial.printf("TD8120MG attached on channel %d (pin=%d)\n", ch_2, TD8120MG.pin());
+  else
+    Serial.printf("TD8120MG attach FAILED (pin=%d)\n", TD8120MG.pin());
+  // ======================== end debug info ========================
   // Shared action (works for both types):
   // - 180°: move to mechanical center (~90°)
   // - 360°: stop (neutral)
