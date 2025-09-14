@@ -109,6 +109,8 @@ inline bool button_handle_line(const String& raw) {
   line.trim();
   if (line.isEmpty()) return false;
   if (!_startsWith(line, "BTN")) return false;
+  // DEBUG: ดูบรรทัดที่เข้ามา
+  Serial.printf("[ESP32] RX: %s\n", line.c_str());
 
   // รองรับ A=DOWN/UP หรือ A=1/0
   String tokA, tokB, tokX;
@@ -138,6 +140,7 @@ void button_serial_poll() {
       if (g_rx_line.length() > 0) {
         button_handle_line(g_rx_line);
         g_rx_line = "";
+        
       }
     } else {
       if (g_rx_line.length() < 240) g_rx_line += c;
