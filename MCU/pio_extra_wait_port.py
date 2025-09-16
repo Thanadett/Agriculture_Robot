@@ -1,7 +1,10 @@
 # pio_extra_wait_port.py
+from SCons.Script import Import
 Import("env")
 import os, time
 
+# ใส่ flag เฉพาะกับ C++ (ไม่ลงกับ C)
+env.Append(CXXFLAGS=["-fno-rtti"])
 # ถูกเรียกโดย SCons ด้วยคีย์เวิร์ด: source=..., target=..., env=...
 def wait_port(source, target, env):
     # อ่านพอร์ตจาก platformio.ini (upload_port)

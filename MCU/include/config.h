@@ -5,18 +5,18 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-// ================== โหมดระบบ (เลือก A/B) ==================
-// 1 = PID (v,ω) บน ESP32, 0 = ไม่ทำ PID (ผ่าน /cmd_vel ตรงเข้ามอเตอร์)
-#define USE_PID_ESP32 1
+// // ================== โหมดระบบ (เลือก A/B) ==================
+// // 1 = PID (v,ω) บน ESP32, 0 = ไม่ทำ PID (ผ่าน /cmd_vel ตรงเข้ามอเตอร์)
+// #define USE_PID_ESP32 1
 
 // ================== ความถี่ลูป/หัวข้อ ROS ==================
 #define CONTROL_HZ 200.0f // ลูปควบคุมหลัก (อ่าน encoder + PID/pass-through + motorDrive_update)
 #define ODOM_HZ 50.0f     // publish wheel/odom
 #define IMU_HZ 100.0f     // publish imu/data
 
-#define ODOM_FRAME "odom"
-#define BASE_FRAME "base_link"
-#define IMU_FRAME "imu_link"
+// #define ODOM_FRAME "odom"
+// #define BASE_FRAME "base_link"
+// #define IMU_FRAME "imu_link"
 
 // ================== พารามิเตอร์ตัวรถ ==================
 #define WHEEL_RADIUS_M 0.0635f                                // m
@@ -37,14 +37,14 @@
 #define ENCODER_PPR_OUTPUT_DEFAULT (ENCODER_PPR_MOTOR * REDUCTION_RATIO * QUAD_MULT_DEFAULT)
 
 // Encoder pin (A,B)
-#define ENC_FL_A 35
-#define ENC_FL_B 32
-#define ENC_RL_A 33
-#define ENC_RL_B 25
-#define ENC_FR_A 19
-#define ENC_FR_B 18
-#define ENC_RR_A 17
-#define ENC_RR_B 16
+#define ENC_FL_A 4
+#define ENC_FL_B 0
+#define ENC_RL_A 2
+#define ENC_RL_B 15
+#define ENC_FR_A 17
+#define ENC_FR_B 16
+#define ENC_RR_A 19
+#define ENC_RR_B 18
 
 // ทิศอ่าน encoder (+1=ปกติ, -1=กลับทิศ)
 #define ENC_INV_FL (+1)
@@ -66,15 +66,15 @@
 
 // ================== มอเตอร์ ==================
 // ขามอเตอร์ซ้ายหน้า/หลัง
-#define LF_IN1 14
-#define LF_IN2 12
-#define LR_IN1 27
-#define LR_IN2 26
+#define LF_IN1 33
+#define LF_IN2 25
+#define LR_IN1 26
+#define LR_IN2 27
 // ขามอเตอร์ขวาหน้า/หลัง
-#define RF_IN1 25
-#define RF_IN2 33
-#define RR_IN1 4
-#define RR_IN2 0
+#define RF_IN1 14
+#define RF_IN2 12
+#define RR_IN1 35
+#define RR_IN2 32
 
 // LEDC ช่อง (0..7) และพารามิเตอร์ PWM
 static constexpr int PWM_FREQ_HZ = 20000; // 20kHz เงียบ

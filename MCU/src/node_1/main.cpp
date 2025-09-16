@@ -59,7 +59,7 @@ static float x_ = 0.0f, y_ = 0.0f, yaw_ = 0.0f;
 static float v_last = 0.0f, w_last = 0.0f;
 extern bool estop; // จาก motorDrive.h
 
-// --- PATCH: ใช้ epoch time ของ micro-ROS ถ้ามี time sync; ถ้าไม่มี fallback ไป micros()
+// --- PATCH: ใช้ epoch time ของ micro-ROS ถ้ามี time sync; ถ้าไม่มี fallback ไป m0icros()
 extern "C" int64_t rmw_uros_epoch_nanos(void); // ถ้าไม่มี time sync จะคืน 0
 static inline int64_t now_nanos()
 {
@@ -329,20 +329,22 @@ void setup()
   }
 
   // Initialize timers
-  ret = rclc_timer_init_default(
+  ret = rclc_timer_init_default2(
       &control_timer, &support,
       RCL_MS_TO_NS((int)(1000.0f / CONTROL_HZ)),
-      control_timer_cb);
+      control_timer_cb,
+    true /* autostart */);
   if (ret != RCL_RET_OK)
   {
     Serial.println("ERROR: control timer init failed");
     return;
   }
 
-  ret = rclc_timer_init_default(
+  ret = rclc_timer_init_default2(
       &odom_timer, &support,
       RCL_MS_TO_NS((int)(1000.0f / ODOM_HZ)),
-      odom_timer_cb);
+      odom_timer_cb,
+    true /* autostart */);
   if (ret != RCL_RET_OK)
   {
     Serial.println("ERROR: odom timer init failed");
