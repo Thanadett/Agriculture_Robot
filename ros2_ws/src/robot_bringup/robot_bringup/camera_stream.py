@@ -44,8 +44,10 @@ center_dot_color = (0, 0, 255)  # BGR - red center dot
 CONFIG = {
     'device1': 0,
     'device2': 1,
-    'width': 800,
-    'height': 600,
+    'width1': 800,
+    'height1': 600,
+    'width2': 640,
+    'height2': 480,
     'fps': 30,
     'port': 5000,
     'host': '0.0.0.0',
@@ -57,10 +59,54 @@ CONFIG = {
 
 # ROS-like data simulation (replace with actual ROS subscriber)
 ros_data = {
-    'cmd_vel': {'linear': {'x': 0.0, 'y': 0.0, 'z': 0.0}, 'angular': {'x': 0.0, 'y': 0.0, 'z': 0.0}},
-    'imu': {'orientation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0}, 'angular_velocity': {'x': 0.0, 'y': 0.0, 'z': 0.0}},
-    'battery': {'voltage': 12.0, 'percentage': 85},
-    'odometry': {'position': {'x': 0.0, 'y': 0.0, 'z': 0.0}, 'velocity': {'linear': 0.0, 'angular': 0.0}}
+    'cmd_vel': {
+        'linear': {'x': 0.0, 'y': 0.0, 'z': 0.0}, 
+        'angular': {'x': 0.0, 'y': 0.0, 'z': 0.0}
+    },
+    'imu': {
+        'orientation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0}, 
+        'angular_velocity': {'x': 0.0, 'y': 0.0, 'z': 0.0},
+        'linear_acceleration': {'x': 0.0, 'y': 0.0, 'z': 9.81}
+    },
+    'battery': {
+        'voltage': 12.0, 
+        'percentage': 85,
+        'temperature': 25.5,
+        'current': -0.5
+    },
+    'odometry': {
+        'position': {'x': 0.0, 'y': 0.0, 'z': 0.0}, 
+        'orientation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0},
+        'velocity': {'linear': 0.0, 'angular': 0.0},
+        'covariance': {'position': 0.01, 'orientation': 0.01}
+    },
+    'joint_states': {
+        'names': ['wheel_left', 'wheel_right', 'arm_joint1', 'arm_joint2'],
+        'positions': [0.0, 0.0, 0.0, 0.0],
+        'velocities': [0.0, 0.0, 0.0, 0.0],
+        'efforts': [0.0, 0.0, 0.0, 0.0]
+    },
+    'tf2': {
+        'base_link': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'qx': 0.0, 'qy': 0.0, 'qz': 0.0, 'qw': 1.0},
+        'odom': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'qx': 0.0, 'qy': 0.0, 'qz': 0.0, 'qw': 1.0}
+    },
+    'laser_scan': {
+        'ranges': [1.5, 2.0, 1.8, 2.5, 3.0, 2.2, 1.7, 1.9],
+        'angle_min': -1.57,
+        'angle_max': 1.57,
+        'angle_increment': 0.44,
+        'range_min': 0.1,
+        'range_max': 10.0
+    },
+    'diagnostics': {
+        'hardware_id': 'robot_main',
+        'status': 'OK',
+        'message': 'All systems operational',
+        'cpu_usage': 45.2,
+        'memory_usage': 62.8,
+        'disk_usage': 38.5,
+        'temperature': 58.3
+    }
 }
 ros_lock = threading.Lock()
 
@@ -105,27 +151,82 @@ def draw_overlay_inplace(frame_bgr, fps_ema, camera_name, show_fps=True):
 
 # ---------------- ROS Data Simulator ----------------
 def ros_data_simulator():
-    """Simulate ROS topic data updates"""
+    """Simulate ROS topic data updates with more realistic and varied data"""
     global ros_data
     
     while True:
         with ros_lock:
-            # Simulate cmd_vel changes
-            ros_data['cmd_vel']['linear']['x'] = np.sin(time.time() * 0.5) * 2.0
-            ros_data['cmd_vel']['angular']['z'] = np.cos(time.time() * 0.3) * 1.5
+            t = time.time()
             
-            # Simulate IMU data
-            ros_data['imu']['angular_velocity']['z'] = np.sin(time.time() * 0.2) * 0.5
+            # Simulate cmd_vel with smoother movements
+            ros_data['cmd_vel']['linear']['x'] = np.sin(t * 0.3) * 1.5 + np.cos(t * 0.1) * 0.5
+            ros_data['cmd_vel']['linear']['y'] = np.sin(t * 0.2) * 0.8
+            ros_data['cmd_vel']['angular']['z'] = np.cos(t * 0.4) * 1.2 + np.sin(t * 0.15) * 0.3
             
-            # Simulate battery discharge
-            ros_data['battery']['percentage'] = max(20, 100 - (time.time() % 100))
-            ros_data['battery']['voltage'] = 10.0 + ros_data['battery']['percentage'] * 0.04
+            # Simulate IMU data with realistic noise
+            ros_data['imu']['angular_velocity']['x'] = np.sin(t * 0.3) * 0.2 + np.random.normal(0, 0.05)
+            ros_data['imu']['angular_velocity']['y'] = np.cos(t * 0.25) * 0.15 + np.random.normal(0, 0.03)
+            ros_data['imu']['angular_velocity']['z'] = np.sin(t * 0.2) * 0.5 + np.random.normal(0, 0.02)
             
-            # Simulate odometry
-            ros_data['odometry']['position']['x'] += ros_data['cmd_vel']['linear']['x'] * 0.1
-            ros_data['odometry']['position']['y'] += ros_data['cmd_vel']['linear']['y'] * 0.1
-            ros_data['odometry']['velocity']['linear'] = abs(ros_data['cmd_vel']['linear']['x'])
+            # Linear acceleration with gravity and movement
+            ros_data['imu']['linear_acceleration']['x'] = np.sin(t * 0.5) * 2.0 + np.random.normal(0, 0.1)
+            ros_data['imu']['linear_acceleration']['y'] = np.cos(t * 0.3) * 1.5 + np.random.normal(0, 0.1)
+            ros_data['imu']['linear_acceleration']['z'] = 9.81 + np.sin(t * 0.1) * 0.3 + np.random.normal(0, 0.05)
+            
+            # Orientation quaternion (simplified rotation around Z)
+            yaw = np.sin(t * 0.1) * 0.5
+            ros_data['imu']['orientation']['z'] = np.sin(yaw/2)
+            ros_data['imu']['orientation']['w'] = np.cos(yaw/2)
+            
+            # Battery simulation with discharge and temperature effects
+            base_percentage = 100 - (t % 3600) / 36  # 1% per minute simulation
+            ros_data['battery']['percentage'] = max(15, base_percentage + np.sin(t * 0.01) * 5)
+            ros_data['battery']['voltage'] = 10.5 + ros_data['battery']['percentage'] * 0.035
+            ros_data['battery']['temperature'] = 20 + np.sin(t * 0.01) * 10 + np.random.normal(0, 1)
+            ros_data['battery']['current'] = -0.2 - abs(ros_data['cmd_vel']['linear']['x']) * 0.5
+            
+            # Odometry integration
+            dt = 0.1
+            ros_data['odometry']['position']['x'] += ros_data['cmd_vel']['linear']['x'] * dt
+            ros_data['odometry']['position']['y'] += ros_data['cmd_vel']['linear']['y'] * dt
+            ros_data['odometry']['velocity']['linear'] = np.sqrt(
+                ros_data['cmd_vel']['linear']['x']**2 + ros_data['cmd_vel']['linear']['y']**2
+            )
             ros_data['odometry']['velocity']['angular'] = abs(ros_data['cmd_vel']['angular']['z'])
+            
+            # Joint states simulation
+            for i in range(len(ros_data['joint_states']['positions'])):
+                ros_data['joint_states']['positions'][i] = np.sin(t * (0.2 + i * 0.1)) * (1 + i * 0.5)
+                ros_data['joint_states']['velocities'][i] = np.cos(t * (0.3 + i * 0.1)) * (0.5 + i * 0.2)
+                ros_data['joint_states']['efforts'][i] = np.sin(t * (0.15 + i * 0.05)) * (10 + i * 5)
+            
+            # Laser scan simulation
+            for i in range(len(ros_data['laser_scan']['ranges'])):
+                base_range = 2.0 + np.sin(t * 0.1 + i * 0.5) * 1.0
+                ros_data['laser_scan']['ranges'][i] = max(0.1, base_range + np.random.normal(0, 0.1))
+            
+            # TF2 transforms
+            ros_data['tf2']['base_link']['x'] = ros_data['odometry']['position']['x']
+            ros_data['tf2']['base_link']['y'] = ros_data['odometry']['position']['y']
+            ros_data['tf2']['base_link']['qz'] = ros_data['imu']['orientation']['z']
+            ros_data['tf2']['base_link']['qw'] = ros_data['imu']['orientation']['w']
+            
+            # System diagnostics
+            ros_data['diagnostics']['cpu_usage'] = 30 + np.sin(t * 0.05) * 20 + np.random.normal(0, 3)
+            ros_data['diagnostics']['memory_usage'] = 50 + np.sin(t * 0.03) * 15 + np.random.normal(0, 2)
+            ros_data['diagnostics']['disk_usage'] = 35 + t * 0.001  # Slowly increasing
+            ros_data['diagnostics']['temperature'] = 45 + np.sin(t * 0.02) * 10 + np.random.normal(0, 1)
+            
+            # Status based on values
+            if ros_data['diagnostics']['cpu_usage'] > 80 or ros_data['diagnostics']['temperature'] > 70:
+                ros_data['diagnostics']['status'] = 'WARN'
+                ros_data['diagnostics']['message'] = 'High resource usage detected'
+            elif ros_data['diagnostics']['cpu_usage'] > 95 or ros_data['diagnostics']['temperature'] > 85:
+                ros_data['diagnostics']['status'] = 'ERROR'
+                ros_data['diagnostics']['message'] = 'Critical resource usage!'
+            else:
+                ros_data['diagnostics']['status'] = 'OK'
+                ros_data['diagnostics']['message'] = 'All systems operational'
             
         time.sleep(0.1)
 
@@ -142,6 +243,8 @@ def capture_loop(camera_id, device_id):
         bgr_lock = bgr_lock_cam1
         new_frame_event = new_frame_event_cam1
         camera_name = "CAM1"
+        width = CONFIG['width1']
+        height = CONFIG['height1']
     else:
         global latest_jpeg_cam2, latest_bgr_cam2, fps_ema_cam2, last_tick_cam2
         latest_jpeg = latest_jpeg_cam2
@@ -152,6 +255,8 @@ def capture_loop(camera_id, device_id):
         bgr_lock = bgr_lock_cam2
         new_frame_event = new_frame_event_cam2
         camera_name = "CAM2"
+        width = CONFIG['width2']
+        height = CONFIG['height2']
     
     # Initialize frame counting variables
     frame_count = 0
@@ -159,8 +264,6 @@ def capture_loop(camera_id, device_id):
     start_time = time.monotonic()
     
     # Get configuration values
-    width = CONFIG['width']
-    height = CONFIG['height']
     fps_target = CONFIG['fps']
     flip = CONFIG['flip']
     rotate = CONFIG['rotate']
@@ -221,27 +324,17 @@ def capture_loop(camera_id, device_id):
 
     try:
         # Set camera properties
-        cap1.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-        cap1.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        cap1.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-        cap1.set(cv2.CAP_PROP_FPS, fps_target)
-        cap1.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-
-        cap2.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-        cap2.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        cap2.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-        cap2.set(cv2.CAP_PROP_FPS, fps_target)
-        cap2.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        cap.set(cv2.CAP_PROP_FPS, fps_target)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         
         # Additional settings
         try:
-            cap1.set(cv2.CAP_PROP_AUTOFOCUS, 0)
-            cap1.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
-            cap1.set(cv2.CAP_PROP_EXPOSURE, -6)
-
-            cap2.set(cv2.CAP_PROP_AUTOFOCUS, 0)
-            cap2.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
-            cap2.set(cv2.CAP_PROP_EXPOSURE, -6)
+            cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+            cap.set(cv2.CAP_PROP_EXPOSURE, -6)
         except:
             pass
             
@@ -417,10 +510,8 @@ def video2():
 
 @app.route("/api/telemetry")
 def api_telemetry():
-    """Enhanced telemetry API with dual camera and ROS data"""
+    """Enhanced telemetry API with camera and ROS data"""
     global latest_bgr_cam1, latest_bgr_cam2, fps_ema_cam1, fps_ema_cam2, CONFIG, ros_data
-    
-    h, w = CONFIG['height'], CONFIG['width']
     
     with ros_lock:
         current_ros_data = ros_data.copy()
@@ -430,19 +521,22 @@ def api_telemetry():
         "cameras": {
             "cam1": {
                 "fps": round(fps_ema_cam1, 1),
-                "resolution": {"width": w, "height": h},
+                "resolution": {"width": CONFIG['width1'], "height": CONFIG['height1']},
                 "status": "active" if latest_bgr_cam1 is not None else "inactive",
                 "device": CONFIG['device1']
             },
             "cam2": {
                 "fps": round(fps_ema_cam2, 1),
-                "resolution": {"width": w, "height": h},
-                "status": "active" if latest_bgr_cam2 is not None else "inactive", 
+                "resolution": {"width": CONFIG['width2'], "height": CONFIG['height2']}, 
+                "status": "active" if latest_bgr_cam2 is not None else "inactive",
                 "device": CONFIG['device2']
             }
         },
         "target_fps": CONFIG['fps'],
-        "configured_resolution": {"width": CONFIG['width'], "height": CONFIG['height']},
+        "configured_resolution": {
+            "cam1": {"width": CONFIG['width1'], "height": CONFIG['height1']},
+            "cam2": {"width": CONFIG['width2'], "height": CONFIG['height2']}
+        },
         "overlays": {"grid": False, "center_dot": True},
         "ros_topics": current_ros_data,
         "system": {
@@ -459,19 +553,18 @@ def main():
     parser = argparse.ArgumentParser(description="Robot Camera Stream")
     parser.add_argument('--device1', type=int, help='Camera 1 device index')
     parser.add_argument('--device2', type=int, help='Camera 2 device index')
-    parser.add_argument('--width1', type=int, help='Camera width1')
-    parser.add_argument('--height1', type=int, help='Camera height1')
-    parser.add_argument('--width2', type=int, help='Camera width2')
-    parser.add_argument('--height2', type=int, help='Camera height2')
+    parser.add_argument('--width1', type=int, help='Camera 1 width')
+    parser.add_argument('--height1', type=int, help='Camera 1 height')
+    parser.add_argument('--width2', type=int, help='Camera 2 width')
+    parser.add_argument('--height2', type=int, help='Camera 2 height')
     parser.add_argument('--fps', type=int, help='Camera FPS')
     parser.add_argument('--flip', type=int, default=0, help='Flip camera horizontally (0/1)')
     parser.add_argument('--rotate', type=int, default=0, choices=[0, 90, 180, 270], help='Rotate camera')
     parser.add_argument('--port', type=int, default=5000, help='Server port')
     parser.add_argument('--quality', type=int, default=75, help='JPEG quality (1-100)')
-    parser.add_argument('--show-fps', type=int, default=1, help='Show FPS overlay (0/1)')
+    parser.add_argument('--show-fps', type=int, default=0, help='Show FPS overlay (0/1)')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Server host')
-
-    args, unknown = parser.parse_known_args()
+    args, _unknown = parser.parse_known_args()
 
     # Validate required arguments
     if args.device1 is None:
@@ -485,6 +578,7 @@ def main():
         return
     if args.height1 is None:
         log.error("--height1 is required")
+        return
     if args.width2 is None:
         log.error("--width2 is required")
         return
@@ -512,11 +606,11 @@ def main():
         'show_fps': bool(args.show_fps)
     })
 
-    log.info("Starting Dual Robot Camera Stream System")
+    log.info("Starting Robot Camera Stream System")
     log.info("=" * 60)
     log.info(f"Server: http://{CONFIG['host']}:{CONFIG['port']}")
-    log.info(f"Camera 1: {CONFIG['width']}×{CONFIG['height']}@{CONFIG['fps']}fps (device {CONFIG['device1']})")
-    log.info(f"Camera 2: {CONFIG['width']}×{CONFIG['height']}@{CONFIG['fps']}fps (device {CONFIG['device2']})")
+    log.info(f"Camera 1: {CONFIG['width1']}×{CONFIG['height1']}@{CONFIG['fps']}fps (device {CONFIG['device1']})")
+    log.info(f"Camera 2: {CONFIG['width2']}×{CONFIG['height2']}@{CONFIG['fps']}fps (device {CONFIG['device2']})")
     log.info(f"Quality: {CONFIG['quality']}% | Features: Center dot overlay, ROS data")
     log.info(f"Options: flip={CONFIG['flip']}, rotate={CONFIG['rotate']}°")
     log.info("=" * 60)
@@ -533,7 +627,7 @@ def main():
     cam2_thread.start()
 
     # Wait for cameras to initialize
-    log.info("Initializing dual camera system...")
+    log.info("Initializing camera system...")
     time.sleep(2)
 
     cam1_ready = False

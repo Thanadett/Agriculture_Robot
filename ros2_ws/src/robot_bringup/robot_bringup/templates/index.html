@@ -1,4 +1,50 @@
-<!DOCTYPE html>
+.camera-grid {
+            display: grid;
+            grid-template-rows: 1fr 1fr;
+            gap: 15px;
+            height: 100%;
+        }        .ros-data {
+            background: rgba(16, 16, 16, 0.9);
+            color: #10a37f;
+            padding: 16px;
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+            max-height: 450px;
+            overflow-y: auto;
+            border-radius: 8px;
+            font-size: 11px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            border: 1px solid rgba(58, 58, 58, 0.3);
+        }
+        
+        .topic-group {
+            margin-bottom: 20px;
+            border-left: 3px solid #10a37f;
+            padding-left: 12px;
+        }
+        
+        .topic-header {
+            color: #ffa500;
+            font-weight: 700;
+            font-size: 13px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .topic-type {
+            color: #7dd3fc;
+            font-size: 10px;
+            font-weight: 400;
+            opacity: 0.8;
+        }
+        
+        .param-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(58<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -34,10 +80,10 @@
         
         .main-container {
             display: grid;
-            grid-template-columns: 2fr 1fr;
+            grid-template-columns: 1.5fr 1fr;
             gap: 20px;
             height: calc(100vh - 120px);
-            max-width: 1800px;
+            max-width: 1900px;
             margin: 0 auto;
             width: 100%;
         }
@@ -58,9 +104,7 @@
             box-shadow: 0 8px 32px rgba(0,0,0,0.4);
             background: #2a2a2a;
             padding: 6px;
-            flex: none;
-            max-width: 900px;      
-            aspect-ratio: 16 / 9;  
+            flex: 1;
         }
         
         .camera-stream { 
@@ -171,51 +215,94 @@
             font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
         }
         
-        .ros-data {
-            background: rgba(16, 16, 16, 0.9);
-            color: #10a37f;
-            padding: 12px;
-            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
-            max-height: 300px;
-            overflow-y: auto;
-            border-radius: 8px;
-            font-size: 11px;
-            line-height: 1.4;
-            white-space: pre-wrap;
-            border: 1px solid rgba(58, 58, 58, 0.3);
-        }
-        
-        .camera-grid {
-            display: grid;
-            grid-template-rows: 1fr 1fr;
-            gap: 15px;
-            height: 100%;
-        }
-        
-        .topic-section {
-            margin-bottom: 15px;
-        }
-        
-        .topic-title {
-            color: #ffa500;
-            font-weight: 600;
-            margin-bottom: 8px;
-            font-size: 12px;
-        }
-        
-        .topic-data {
-            background: rgba(26, 26, 26, 0.5);
-            padding: 8px;
-            border-radius: 4px;
-            border-left: 3px solid #10a37f;
+        .param-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(58, 58, 58, 0.1);
             font-size: 10px;
-            line-height: 1.3;
         }
         
-        .value-highlight {
-            color: #7dd3fc;
-            font-weight: 600;
+        .param-row:last-child {
+            border-bottom: none;
         }
+        
+        .param-name {
+            color: #b0b0b0;
+            font-weight: 400;
+            flex: 1;
+        }
+        
+        .param-value {
+            color: #e8e8e8;
+            font-weight: 600;
+            text-align: right;
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+        }
+        
+        .param-unit {
+            color: #888;
+            font-size: 9px;
+            margin-left: 2px;
+        }
+        
+        .status-ok { color: #10a37f; }
+        .status-warn { color: #ffa500; }
+        .status-error { color: #ff4444; }
+        
+        .array-display {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4px;
+            margin-top: 4px;
+        }
+        
+        .array-item {
+            background: rgba(26, 26, 26, 0.5);
+            padding: 2px 4px;
+            border-radius: 3px;
+            text-align: center;
+            font-size: 9px;
+        }
+        
+        .vector-display {
+            display: flex;
+            gap: 8px;
+            margin-top: 2px;
+        }
+        
+        .vector-component {
+            background: rgba(26, 26, 26, 0.5);
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+        }
+        
+        .diagnostic-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+        }
+        
+        .progress-bar {
+            width: 60px;
+            height: 6px;
+            background: rgba(58, 58, 58, 0.3);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-left: 8px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-low { background: #10a37f; }
+        .progress-medium { background: #ffa500; }
+        .progress-high { background: #ff4444; }
         
         .timestamp-display {
             color: #b0b0b0;
@@ -332,8 +419,16 @@
                     <span class="info-value" id="cam2-status">Connecting...</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Resolution:</span>
-                    <span class="info-value" id="resolution-display">800×600 @ 30fps</span>
+                    <span class="info-label">CAM1 Resolution:</span>
+                    <span class="info-value" id="cam1-resolution">800×600</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">CAM2 Resolution:</span>
+                    <span class="info-value" id="cam2-resolution">640×480</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Target FPS:</span>
+                    <span class="info-value" id="target-fps">30fps</span>
                 </div>
                 <div class="timestamp-display" id="timestamp">Loading...</div>
             </div>
@@ -409,57 +504,136 @@
         
         // Update camera configuration display
         function updateCameraConfig(config) {
-            cameraConfig = { ...cameraConfig, ...config };
-            const resolutionEl = $("#resolution-display");
-            if (resolutionEl) {
-                resolutionEl.innerText = `${cameraConfig.width}×${cameraConfig.height} @ ${cameraConfig.fps}fps`;
+            if (config.cam1) {
+                $("#cam1-resolution").innerText = `${config.cam1.width}×${config.cam1.height}`;
+            }
+            if (config.cam2) {
+                $("#cam2-resolution").innerText = `${config.cam2.width}×${config.cam2.height}`;
+            }
+            if (config.target_fps) {
+                $("#target-fps").innerText = `${config.target_fps}fps`;
             }
         }
         
-        // Format ROS data for display
+        // Format ROS data for display with enhanced styling
         function formatRosData(rosData) {
             let output = '';
             
             // CMD_VEL Topic
-            output += `<div class="topic-section">`;
-            output += `<div class="topic-title">/cmd_vel (geometry_msgs/Twist)</div>`;
-            output += `<div class="topic-data">`;
-            output += `Linear:  x=<span class="value-highlight">${rosData.cmd_vel.linear.x.toFixed(2)}</span> `;
-            output += `y=<span class="value-highlight">${rosData.cmd_vel.linear.y.toFixed(2)}</span> `;
-            output += `z=<span class="value-highlight">${rosData.cmd_vel.linear.z.toFixed(2)}</span>\n`;
-            output += `Angular: x=<span class="value-highlight">${rosData.cmd_vel.angular.x.toFixed(2)}</span> `;
-            output += `y=<span class="value-highlight">${rosData.cmd_vel.angular.y.toFixed(2)}</span> `;
-            output += `z=<span class="value-highlight">${rosData.cmd_vel.angular.z.toFixed(2)}</span>`;
-            output += `</div></div>`;
+            output += `<div class="topic-group">`;
+            output += `<div class="topic-header">🎮 /cmd_vel <span class="topic-type">(geometry_msgs/Twist)</span></div>`;
+            output += `<div class="param-row"><span class="param-name">Linear X:</span><span class="param-value">${rosData.cmd_vel.linear.x.toFixed(3)}<span class="param-unit">m/s</span></span></div>`;
+            output += `<div class="param-row"><span class="param-name">Linear Y:</span><span class="param-value">${rosData.cmd_vel.linear.y.toFixed(3)}<span class="param-unit">m/s</span></span></div>`;
+            output += `<div class="param-row"><span class="param-name">Angular Z:</span><span class="param-value">${rosData.cmd_vel.angular.z.toFixed(3)}<span class="param-unit">rad/s</span></span></div>`;
+            output += `</div>`;
             
             // IMU Topic
-            output += `<div class="topic-section">`;
-            output += `<div class="topic-title">/imu (sensor_msgs/Imu)</div>`;
-            output += `<div class="topic-data">`;
-            output += `Orientation: x=<span class="value-highlight">${rosData.imu.orientation.x.toFixed(3)}</span> `;
-            output += `y=<span class="value-highlight">${rosData.imu.orientation.y.toFixed(3)}</span>\n`;
-            output += `             z=<span class="value-highlight">${rosData.imu.orientation.z.toFixed(3)}</span> `;
-            output += `w=<span class="value-highlight">${rosData.imu.orientation.w.toFixed(3)}</span>\n`;
-            output += `AngularVel:  z=<span class="value-highlight">${rosData.imu.angular_velocity.z.toFixed(3)}</span> rad/s`;
-            output += `</div></div>`;
+            output += `<div class="topic-group">`;
+            output += `<div class="topic-header">📡 /imu <span class="topic-type">(sensor_msgs/Imu)</span></div>`;
+            output += `<div class="param-row"><span class="param-name">Orientation:</span><span class="param-value"></span></div>`;
+            output += `<div class="vector-display">`;
+            output += `<div class="vector-component">x: ${rosData.imu.orientation.x.toFixed(3)}</div>`;
+            output += `<div class="vector-component">y: ${rosData.imu.orientation.y.toFixed(3)}</div>`;
+            output += `<div class="vector-component">z: ${rosData.imu.orientation.z.toFixed(3)}</div>`;
+            output += `<div class="vector-component">w: ${rosData.imu.orientation.w.toFixed(3)}</div>`;
+            output += `</div>`;
+            output += `<div class="param-row"><span class="param-name">Angular Velocity:</span><span class="param-value"></span></div>`;
+            output += `<div class="vector-display">`;
+            output += `<div class="vector-component">x: ${rosData.imu.angular_velocity.x.toFixed(3)}</div>`;
+            output += `<div class="vector-component">y: ${rosData.imu.angular_velocity.y.toFixed(3)}</div>`;
+            output += `<div class="vector-component">z: ${rosData.imu.angular_velocity.z.toFixed(3)}</div>`;
+            output += `</div>`;
+            output += `<div class="param-row"><span class="param-name">Linear Accel:</span><span class="param-value"></span></div>`;
+            output += `<div class="vector-display">`;
+            output += `<div class="vector-component">x: ${rosData.imu.linear_acceleration.x.toFixed(2)}</div>`;
+            output += `<div class="vector-component">y: ${rosData.imu.linear_acceleration.y.toFixed(2)}</div>`;
+            output += `<div class="vector-component">z: ${rosData.imu.linear_acceleration.z.toFixed(2)}</div>`;
+            output += `</div>`;
+            output += `</div>`;
             
             // Battery Topic
-            output += `<div class="topic-section">`;
-            output += `<div class="topic-title">/battery_state (sensor_msgs/BatteryState)</div>`;
-            output += `<div class="topic-data">`;
-            output += `Voltage:    <span class="value-highlight">${rosData.battery.voltage.toFixed(1)}V</span>\n`;
-            output += `Percentage: <span class="value-highlight">${rosData.battery.percentage.toFixed(1)}%</span>`;
-            output += `</div></div>`;
+            output += `<div class="topic-group">`;
+            output += `<div class="topic-header">🔋 /battery_state <span class="topic-type">(sensor_msgs/BatteryState)</span></div>`;
+            output += `<div class="param-row"><span class="param-name">Voltage:</span><span class="param-value">${rosData.battery.voltage.toFixed(2)}<span class="param-unit">V</span></span></div>`;
+            output += `<div class="param-row"><span class="param-name">Percentage:</span><span class="param-value">${rosData.battery.percentage.toFixed(1)}<span class="param-unit">%</span></span></div>`;
+            output += `<div class="param-row"><span class="param-name">Temperature:</span><span class="param-value">${rosData.battery.temperature.toFixed(1)}<span class="param-unit">°C</span></span></div>`;
+            output += `<div class="param-row"><span class="param-name">Current:</span><span class="param-value">${rosData.battery.current.toFixed(2)}<span class="param-unit">A</span></span></div>`;
+            output += `</div>`;
             
             // Odometry Topic
-            output += `<div class="topic-section">`;
-            output += `<div class="topic-title">/odom (nav_msgs/Odometry)</div>`;
-            output += `<div class="topic-data">`;
-            output += `Position: x=<span class="value-highlight">${rosData.odometry.position.x.toFixed(2)}</span> `;
-            output += `y=<span class="value-highlight">${rosData.odometry.position.y.toFixed(2)}</span>\n`;
-            output += `Velocity: linear=<span class="value-highlight">${rosData.odometry.velocity.linear.toFixed(2)}</span> `;
-            output += `angular=<span class="value-highlight">${rosData.odometry.velocity.angular.toFixed(2)}</span>`;
-            output += `</div></div>`;
+            output += `<div class="topic-group">`;
+            output += `<div class="topic-header">🗺️ /odom <span class="topic-type">(nav_msgs/Odometry)</span></div>`;
+            output += `<div class="param-row"><span class="param-name">Position:</span><span class="param-value"></span></div>`;
+            output += `<div class="vector-display">`;
+            output += `<div class="vector-component">x: ${rosData.odometry.position.x.toFixed(2)}</div>`;
+            output += `<div class="vector-component">y: ${rosData.odometry.position.y.toFixed(2)}</div>`;
+            output += `<div class="vector-component">z: ${rosData.odometry.position.z.toFixed(2)}</div>`;
+            output += `</div>`;
+            output += `<div class="param-row"><span class="param-name">Linear Vel:</span><span class="param-value">${rosData.odometry.velocity.linear.toFixed(3)}<span class="param-unit">m/s</span></span></div>`;
+            output += `<div class="param-row"><span class="param-name">Angular Vel:</span><span class="param-value">${rosData.odometry.velocity.angular.toFixed(3)}<span class="param-unit">rad/s</span></span></div>`;
+            output += `</div>`;
+            
+            // Joint States Topic
+            output += `<div class="topic-group">`;
+            output += `<div class="topic-header">🦾 /joint_states <span class="topic-type">(sensor_msgs/JointState)</span></div>`;
+            rosData.joint_states.names.forEach((name, i) => {
+                output += `<div class="param-row"><span class="param-name">${name}:</span><span class="param-value"></span></div>`;
+                output += `<div class="vector-display">`;
+                output += `<div class="vector-component">pos: ${rosData.joint_states.positions[i].toFixed(2)}</div>`;
+                output += `<div class="vector-component">vel: ${rosData.joint_states.velocities[i].toFixed(2)}</div>`;
+                output += `<div class="vector-component">eff: ${rosData.joint_states.efforts[i].toFixed(1)}</div>`;
+                output += `</div>`;
+            });
+            output += `</div>`;
+            
+            // Laser Scan Topic
+            output += `<div class="topic-group">`;
+            output += `<div class="topic-header">📡 /scan <span class="topic-type">(sensor_msgs/LaserScan)</span></div>`;
+            output += `<div class="param-row"><span class="param-name">Range Min/Max:</span><span class="param-value">${rosData.laser_scan.range_min.toFixed(1)} / ${rosData.laser_scan.range_max.toFixed(1)}<span class="param-unit">m</span></span></div>`;
+            output += `<div class="param-row"><span class="param-name">Angle Min/Max:</span><span class="param-value">${rosData.laser_scan.angle_min.toFixed(2)} / ${rosData.laser_scan.angle_max.toFixed(2)}<span class="param-unit">rad</span></span></div>`;
+            output += `<div class="param-row"><span class="param-name">Ranges:</span><span class="param-value"></span></div>`;
+            output += `<div class="array-display">`;
+            rosData.laser_scan.ranges.forEach(range => {
+                output += `<div class="array-item">${range.toFixed(1)}</div>`;
+            });
+            output += `</div>`;
+            output += `</div>`;
+            
+            // System Diagnostics
+            output += `<div class="topic-group">`;
+            output += `<div class="topic-header">⚙️ /diagnostics <span class="topic-type">(diagnostic_msgs/DiagnosticStatus)</span></div>`;
+            const status = rosData.diagnostics.status;
+            const statusClass = status === 'OK' ? 'status-ok' : status === 'WARN' ? 'status-warn' : 'status-error';
+            output += `<div class="param-row"><span class="param-name">Status:</span><span class="param-value ${statusClass}">${status}</span></div>`;
+            output += `<div class="param-row"><span class="param-name">Message:</span><span class="param-value">${rosData.diagnostics.message}</span></div>`;
+            output += `<div class="param-row"><span class="param-name">Hardware ID:</span><span class="param-value">${rosData.diagnostics.hardware_id}</span></div>`;
+            
+            // CPU Usage with progress bar
+            const cpuUsage = rosData.diagnostics.cpu_usage;
+            const cpuClass = cpuUsage < 50 ? 'progress-low' : cpuUsage < 80 ? 'progress-medium' : 'progress-high';
+            output += `<div class="diagnostic-item">`;
+            output += `<span class="param-name">CPU Usage:</span>`;
+            output += `<div style="display: flex; align-items: center;">`;
+            output += `<span class="param-value">${cpuUsage.toFixed(1)}%</span>`;
+            output += `<div class="progress-bar"><div class="progress-fill ${cpuClass}" style="width: ${cpuUsage}%"></div></div>`;
+            output += `</div>`;
+            output += `</div>`;
+            
+            // Memory Usage with progress bar
+            const memUsage = rosData.diagnostics.memory_usage;
+            const memClass = memUsage < 50 ? 'progress-low' : memUsage < 80 ? 'progress-medium' : 'progress-high';
+            output += `<div class="diagnostic-item">`;
+            output += `<span class="param-name">Memory Usage:</span>`;
+            output += `<div style="display: flex; align-items: center;">`;
+            output += `<span class="param-value">${memUsage.toFixed(1)}%</span>`;
+            output += `<div class="progress-bar"><div class="progress-fill ${memClass}" style="width: ${memUsage}%"></div></div>`;
+            output += `</div>`;
+            output += `</div>`;
+            
+            // Temperature
+            output += `<div class="param-row"><span class="param-name">Temperature:</span><span class="param-value">${rosData.diagnostics.temperature.toFixed(1)}<span class="param-unit">°C</span></span></div>`;
+            output += `<div class="param-row"><span class="param-name">Disk Usage:</span><span class="param-value">${rosData.diagnostics.disk_usage.toFixed(1)}<span class="param-unit">%</span></span></div>`;
+            output += `</div>`;
             
             return output;
         }
@@ -496,9 +670,9 @@
                 // Update camera configuration
                 if (data.configured_resolution) {
                     updateCameraConfig({
-                        width: data.configured_resolution.width,
-                        height: data.configured_resolution.height,
-                        fps: data.target_fps
+                        cam1: data.configured_resolution.cam1,
+                        cam2: data.configured_resolution.cam2,
+                        target_fps: data.target_fps
                     });
                 }
                 
