@@ -1,51 +1,53 @@
 .camera-grid {
-            display: grid;
-            grid-template-rows: 1fr 1fr;
-            gap: 15px;
-            height: 100%;
-        }        .ros-data {
-            background: rgba(16, 16, 16, 0.9);
-            color: #10a37f;
-            padding: 16px;
-            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
-            max-height: 450px;
-            overflow-y: auto;
-            border-radius: 8px;
-            font-size: 11px;
-            line-height: 1.5;
-            white-space: pre-wrap;
-            border: 1px solid rgba(58, 58, 58, 0.3);
-        }
-        
-        .topic-group {
-            margin-bottom: 20px;
-            border-left: 3px solid #10a37f;
-            padding-left: 12px;
-        }
-        
-        .topic-header {
-            color: #ffa500;
-            font-weight: 700;
-            font-size: 13px;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .topic-type {
-            color: #7dd3fc;
-            font-size: 10px;
-            font-weight: 400;
-            opacity: 0.8;
-        }
-        
-        .param-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 2px 0;
-            border-bottom: 1px solid rgba(58<!DOCTYPE html>
+display: grid;
+grid-template-rows: 1fr 1fr;
+gap: 15px;
+height: 100%;
+} .ros-data {
+background: rgba(16, 16, 16, 0.9);
+color: #10a37f;
+padding: 16px;
+font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+max-height: 450px;
+overflow-y: auto;
+border-radius: 8px;
+font-size: 11px;
+line-height: 1.5;
+white-space: pre-wrap;
+border: 1px solid rgba(58, 58, 58, 0.3);
+}
+
+.topic-group {
+margin-bottom: 20px;
+border-left: 3px solid #10a37f;
+padding-left: 12px;
+}
+
+.topic-header {
+color: #ffa500;
+font-weight: 700;
+font-size: 13px;
+margin-bottom: 8px;
+display: flex;
+align-items: center;
+gap: 8px;
+}
+
+.topic-type {
+color: #7dd3fc;
+font-size: 10px;
+font-weight: 400;
+opacity: 0.8;
+}
+
+.param-row {
+display: flex;
+justify-content: space-between;
+padding: 2px 0;
+border-bottom: 1px solid rgba(58
+<!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -56,8 +58,8 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
-        body { 
+
+        body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #1a1a1a;
             color: #e8e8e8;
@@ -67,17 +69,17 @@
             padding: 20px;
             line-height: 1.6;
         }
-        
-        h1 { 
-            margin-bottom: 30px; 
+
+        h1 {
+            margin-bottom: 30px;
             color: orange;
             text-align: center;
             font-size: 2.5rem;
             font-weight: 600;
             letter-spacing: -0.025em;
-            text-shadow: 1px 1px 6px rgba(0,0,0,0.7);
+            text-shadow: 1px 1px 6px rgba(0, 0, 0, 0.7);
         }
-        
+
         .main-container {
             display: grid;
             grid-template-columns: 1.5fr 1fr;
@@ -87,51 +89,54 @@
             margin: 0 auto;
             width: 100%;
         }
-        
+
         .cameras-section {
             display: flex;
             flex-direction: column;
             gap: 15px;
         }
-        
-        .camera-container { 
-            position: relative; 
+
+        .camera-container {
+            position: relative;
             display: flex;
             justify-content: center;
             align-items: center;
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
             background: #2a2a2a;
             padding: 6px;
-            flex: 1;
+            flex: none;
+            width: 90%;
+            max-width: 800px;
+            aspect-ratio: 16 / 9;
         }
-        
-        .camera-stream { 
-            width: 100%; 
-            height: 100%; 
+
+        .camera-stream {
+            width: 100%;
+            height: 100%;
             border-radius: 8px;
             display: block;
             background: #000;
             border: 1px solid #3a3a3a;
             object-fit: contain;
         }
-        
-        .camera-overlay { 
-            position: absolute; 
-            top: 12px; 
-            left: 12px; 
-            color: #10a37f; 
+
+        .camera-overlay {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            color: #10a37f;
             background: rgba(26, 26, 26, 0.9);
             backdrop-filter: blur(8px);
-            padding: 8px 12px; 
-            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace; 
+            padding: 8px 12px;
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
             font-size: 12px;
             border-radius: 6px;
             border: 1px solid rgba(58, 58, 58, 0.6);
             font-weight: 500;
         }
-        
+
         .data-section {
             display: flex;
             flex-direction: column;
@@ -139,17 +144,17 @@
             overflow-y: auto;
             padding-right: 10px;
         }
-        
+
         .info-panel {
             background: rgba(42, 42, 42, 0.8);
             backdrop-filter: blur(12px);
             padding: 20px;
             border-radius: 12px;
             border: 1px solid rgba(58, 58, 58, 0.3);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
             flex-shrink: 0;
         }
-        
+
         .info-panel h2 {
             margin-bottom: 16px;
             color: #f0f0f0;
@@ -160,7 +165,7 @@
             align-items: center;
             gap: 8px;
         }
-        
+
         .status-indicator {
             display: inline-block;
             width: 8px;
@@ -168,28 +173,39 @@
             border-radius: 50%;
             animation: pulse 2s infinite;
         }
-        
+
         .status-connected {
             background-color: #10a37f;
             box-shadow: 0 0 8px rgba(16, 163, 127, 0.5);
         }
-        
+
         .status-disconnected {
             background-color: #ff4444;
             box-shadow: 0 0 8px rgba(255, 68, 68, 0.5);
         }
-        
+
         .status-loading {
             background-color: #ffa500;
             box-shadow: 0 0 8px rgba(255, 165, 0, 0.5);
         }
-        
+
         @keyframes pulse {
-            0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.7; transform: scale(1.1); }
-            100% { opacity: 1; transform: scale(1); }
+            0% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.7;
+                transform: scale(1.1);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
         }
-        
+
         .info-row {
             display: flex;
             justify-content: space-between;
@@ -197,24 +213,24 @@
             padding: 8px 0;
             border-bottom: 1px solid rgba(58, 58, 58, 0.2);
         }
-        
+
         .info-row:last-child {
             border-bottom: none;
         }
-        
+
         .info-label {
             color: #b0b0b0;
             font-size: 13px;
             font-weight: 400;
         }
-        
+
         .info-value {
             color: #e8e8e8;
             font-size: 13px;
             font-weight: 500;
             font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
         }
-        
+
         .param-row {
             display: flex;
             justify-content: space-between;
@@ -222,41 +238,49 @@
             border-bottom: 1px solid rgba(58, 58, 58, 0.1);
             font-size: 10px;
         }
-        
+
         .param-row:last-child {
             border-bottom: none;
         }
-        
+
         .param-name {
             color: #b0b0b0;
             font-weight: 400;
             flex: 1;
         }
-        
+
         .param-value {
             color: #e8e8e8;
             font-weight: 600;
             text-align: right;
             font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
         }
-        
+
         .param-unit {
             color: #888;
             font-size: 9px;
             margin-left: 2px;
         }
-        
-        .status-ok { color: #10a37f; }
-        .status-warn { color: #ffa500; }
-        .status-error { color: #ff4444; }
-        
+
+        .status-ok {
+            color: #10a37f;
+        }
+
+        .status-warn {
+            color: #ffa500;
+        }
+
+        .status-error {
+            color: #ff4444;
+        }
+
         .array-display {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 4px;
             margin-top: 4px;
         }
-        
+
         .array-item {
             background: rgba(26, 26, 26, 0.5);
             padding: 2px 4px;
@@ -264,27 +288,27 @@
             text-align: center;
             font-size: 9px;
         }
-        
+
         .vector-display {
             display: flex;
             gap: 8px;
             margin-top: 2px;
         }
-        
+
         .vector-component {
             background: rgba(26, 26, 26, 0.5);
             padding: 1px 6px;
             border-radius: 3px;
             font-size: 9px;
         }
-        
+
         .diagnostic-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 3px 0;
         }
-        
+
         .progress-bar {
             width: 60px;
             height: 6px;
@@ -293,17 +317,25 @@
             overflow: hidden;
             margin-left: 8px;
         }
-        
+
         .progress-fill {
             height: 100%;
             border-radius: 3px;
             transition: width 0.3s ease;
         }
-        
-        .progress-low { background: #10a37f; }
-        .progress-medium { background: #ffa500; }
-        .progress-high { background: #ff4444; }
-        
+
+        .progress-low {
+            background: #10a37f;
+        }
+
+        .progress-medium {
+            background: #ffa500;
+        }
+
+        .progress-high {
+            background: #ff4444;
+        }
+
         .timestamp-display {
             color: #b0b0b0;
             font-size: 12px;
@@ -311,76 +343,81 @@
             text-align: center;
             margin-top: 10px;
         }
-        
+
         @media (max-width: 1200px) {
             .main-container {
                 grid-template-columns: 1fr;
                 grid-template-rows: 2fr 1fr;
             }
-            
+
             .cameras-section {
                 flex-direction: row;
             }
-            
+
             .camera-grid {
                 grid-template-rows: none;
                 grid-template-columns: 1fr 1fr;
                 height: auto;
             }
-            
+
             .data-section {
                 max-height: 400px;
             }
         }
-        
+
         @media (max-width: 768px) {
             h1 {
                 font-size: 1.8rem;
             }
-            
+
             .cameras-section {
                 flex-direction: column;
             }
-            
+
             .camera-grid {
                 grid-template-columns: 1fr;
                 grid-template-rows: 1fr 1fr;
             }
-            
+
             .main-container {
                 grid-template-columns: 1fr;
                 grid-template-rows: auto auto;
                 height: auto;
             }
-            
+
             .data-section {
                 max-height: none;
             }
         }
-        
+
         /* Scrollbar styling */
-        .ros-data::-webkit-scrollbar, .data-section::-webkit-scrollbar {
+        .ros-data::-webkit-scrollbar,
+        .data-section::-webkit-scrollbar {
             width: 6px;
         }
-        
-        .ros-data::-webkit-scrollbar-track, .data-section::-webkit-scrollbar-track {
+
+        .ros-data::-webkit-scrollbar-track,
+        .data-section::-webkit-scrollbar-track {
             background: rgba(26, 26, 26, 0.5);
             border-radius: 3px;
         }
-        
-        .ros-data::-webkit-scrollbar-thumb, .data-section::-webkit-scrollbar-thumb {
+
+        .ros-data::-webkit-scrollbar-thumb,
+        .data-section::-webkit-scrollbar-thumb {
             background: rgba(16, 163, 127, 0.6);
             border-radius: 3px;
         }
-        
-        .ros-data::-webkit-scrollbar-thumb:hover, .data-section::-webkit-scrollbar-thumb:hover {
+
+        .ros-data::-webkit-scrollbar-thumb:hover,
+        .data-section::-webkit-scrollbar-thumb:hover {
             background: rgba(16, 163, 127, 0.8);
         }
     </style>
 </head>
+
 <body>
     <h1>Robot Camera Stream</h1>
-    
+
     <div class="main-container">
         <!-- Left side - Cameras -->
         <div class="cameras-section">
@@ -389,10 +426,10 @@
                     <img id="video-stream-1" class="camera-stream" src="/video1" alt="Camera 1 Stream">
                     <div class="camera-overlay">
                         <span class="status-indicator status-loading" id="status-dot-1"></span>
-                        CAM1 FPS: <span id="fps-1">0</span> 
+                        CAM1 FPS: <span id="fps-1">0</span>
                     </div>
                 </div>
-                
+
                 <div class="camera-container">
                     <img id="video-stream-2" class="camera-stream" src="/video2" alt="Camera 2 Stream">
                     <div class="camera-overlay">
@@ -402,7 +439,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Right side - Data panels -->
         <div class="data-section">
             <div class="info-panel">
@@ -445,16 +482,16 @@
     <script>
         // Utility functions
         const $ = (sel) => document.querySelector(sel);
-        
+
         // Global state
-        let streamConnected = {cam1: false, cam2: false};
+        let streamConnected = { cam1: false, cam2: false };
         let telemetryErrors = 0;
         let cameraConfig = {
             width: 800,
             height: 600,
             fps: 30
         };
-        
+
         // Update timestamp every second
         function updateTimestamp() {
             try {
@@ -473,16 +510,16 @@
                 $("#timestamp").innerText = new Date().toLocaleString();
             }
         }
-        
+
         // Start timestamp updates
         setInterval(updateTimestamp, 1000);
         updateTimestamp();
-        
+
         // Update status indicator
         function updateStatusIndicator(camera, connected) {
             const dot = $(`#status-dot-${camera}`);
             const status = $(`#cam${camera}-status`);
-            
+
             if (connected) {
                 dot.className = "status-indicator status-connected";
                 status.innerText = "Connected";
@@ -490,7 +527,7 @@
                 dot.className = "status-indicator status-disconnected";
                 status.innerText = "Disconnected";
             }
-            
+
             // Update system status
             const systemDot = $("#system-status");
             if (streamConnected.cam1 && streamConnected.cam2) {
@@ -501,7 +538,7 @@
                 systemDot.className = "status-indicator status-disconnected";
             }
         }
-        
+
         // Update camera configuration display
         function updateCameraConfig(config) {
             if (config.cam1) {
@@ -514,11 +551,11 @@
                 $("#target-fps").innerText = `${config.target_fps}fps`;
             }
         }
-        
+
         // Format ROS data for display with enhanced styling
         function formatRosData(rosData) {
             let output = '';
-            
+
             // CMD_VEL Topic
             output += `<div class="topic-group">`;
             output += `<div class="topic-header">🎮 /cmd_vel <span class="topic-type">(geometry_msgs/Twist)</span></div>`;
@@ -526,7 +563,7 @@
             output += `<div class="param-row"><span class="param-name">Linear Y:</span><span class="param-value">${rosData.cmd_vel.linear.y.toFixed(3)}<span class="param-unit">m/s</span></span></div>`;
             output += `<div class="param-row"><span class="param-name">Angular Z:</span><span class="param-value">${rosData.cmd_vel.angular.z.toFixed(3)}<span class="param-unit">rad/s</span></span></div>`;
             output += `</div>`;
-            
+
             // IMU Topic
             output += `<div class="topic-group">`;
             output += `<div class="topic-header">📡 /imu <span class="topic-type">(sensor_msgs/Imu)</span></div>`;
@@ -550,7 +587,7 @@
             output += `<div class="vector-component">z: ${rosData.imu.linear_acceleration.z.toFixed(2)}</div>`;
             output += `</div>`;
             output += `</div>`;
-            
+
             // Battery Topic
             output += `<div class="topic-group">`;
             output += `<div class="topic-header">🔋 /battery_state <span class="topic-type">(sensor_msgs/BatteryState)</span></div>`;
@@ -559,7 +596,7 @@
             output += `<div class="param-row"><span class="param-name">Temperature:</span><span class="param-value">${rosData.battery.temperature.toFixed(1)}<span class="param-unit">°C</span></span></div>`;
             output += `<div class="param-row"><span class="param-name">Current:</span><span class="param-value">${rosData.battery.current.toFixed(2)}<span class="param-unit">A</span></span></div>`;
             output += `</div>`;
-            
+
             // Odometry Topic
             output += `<div class="topic-group">`;
             output += `<div class="topic-header">🗺️ /odom <span class="topic-type">(nav_msgs/Odometry)</span></div>`;
@@ -572,7 +609,7 @@
             output += `<div class="param-row"><span class="param-name">Linear Vel:</span><span class="param-value">${rosData.odometry.velocity.linear.toFixed(3)}<span class="param-unit">m/s</span></span></div>`;
             output += `<div class="param-row"><span class="param-name">Angular Vel:</span><span class="param-value">${rosData.odometry.velocity.angular.toFixed(3)}<span class="param-unit">rad/s</span></span></div>`;
             output += `</div>`;
-            
+
             // Joint States Topic
             output += `<div class="topic-group">`;
             output += `<div class="topic-header">🦾 /joint_states <span class="topic-type">(sensor_msgs/JointState)</span></div>`;
@@ -585,7 +622,7 @@
                 output += `</div>`;
             });
             output += `</div>`;
-            
+
             // Laser Scan Topic
             output += `<div class="topic-group">`;
             output += `<div class="topic-header">📡 /scan <span class="topic-type">(sensor_msgs/LaserScan)</span></div>`;
@@ -598,7 +635,7 @@
             });
             output += `</div>`;
             output += `</div>`;
-            
+
             // System Diagnostics
             output += `<div class="topic-group">`;
             output += `<div class="topic-header">⚙️ /diagnostics <span class="topic-type">(diagnostic_msgs/DiagnosticStatus)</span></div>`;
@@ -607,7 +644,7 @@
             output += `<div class="param-row"><span class="param-name">Status:</span><span class="param-value ${statusClass}">${status}</span></div>`;
             output += `<div class="param-row"><span class="param-name">Message:</span><span class="param-value">${rosData.diagnostics.message}</span></div>`;
             output += `<div class="param-row"><span class="param-name">Hardware ID:</span><span class="param-value">${rosData.diagnostics.hardware_id}</span></div>`;
-            
+
             // CPU Usage with progress bar
             const cpuUsage = rosData.diagnostics.cpu_usage;
             const cpuClass = cpuUsage < 50 ? 'progress-low' : cpuUsage < 80 ? 'progress-medium' : 'progress-high';
@@ -618,7 +655,7 @@
             output += `<div class="progress-bar"><div class="progress-fill ${cpuClass}" style="width: ${cpuUsage}%"></div></div>`;
             output += `</div>`;
             output += `</div>`;
-            
+
             // Memory Usage with progress bar
             const memUsage = rosData.diagnostics.memory_usage;
             const memClass = memUsage < 50 ? 'progress-low' : memUsage < 80 ? 'progress-medium' : 'progress-high';
@@ -629,44 +666,44 @@
             output += `<div class="progress-bar"><div class="progress-fill ${memClass}" style="width: ${memUsage}%"></div></div>`;
             output += `</div>`;
             output += `</div>`;
-            
+
             // Temperature
             output += `<div class="param-row"><span class="param-name">Temperature:</span><span class="param-value">${rosData.diagnostics.temperature.toFixed(1)}<span class="param-unit">°C</span></span></div>`;
             output += `<div class="param-row"><span class="param-name">Disk Usage:</span><span class="param-value">${rosData.diagnostics.disk_usage.toFixed(1)}<span class="param-unit">%</span></span></div>`;
             output += `</div>`;
-            
+
             return output;
         }
-        
+
         // Telemetry fetching
         async function fetchTelemetry() {
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 5000);
-                
+
                 const r = await fetch("/api/telemetry", {
                     signal: controller.signal
                 });
-                
+
                 clearTimeout(timeoutId);
-                
+
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                
+
                 const data = await r.json();
-                
+
                 // Update camera data
                 if (data.cameras) {
                     $("#fps-1").textContent = data.cameras.cam1?.fps?.toFixed(1) || "0";
                     $("#fps-2").textContent = data.cameras.cam2?.fps?.toFixed(1) || "0";
-                    
+
                     // Update connection status
                     streamConnected.cam1 = data.cameras.cam1?.status === 'active';
                     streamConnected.cam2 = data.cameras.cam2?.status === 'active';
-                    
+
                     updateStatusIndicator(1, streamConnected.cam1);
                     updateStatusIndicator(2, streamConnected.cam2);
                 }
-                
+
                 // Update camera configuration
                 if (data.configured_resolution) {
                     updateCameraConfig({
@@ -675,82 +712,82 @@
                         target_fps: data.target_fps
                     });
                 }
-                
+
                 // Update ROS data
                 if (data.ros_topics) {
                     $("#ros-display").innerHTML = formatRosData(data.ros_topics);
                 }
-                
+
                 // Reset error counter on success
                 telemetryErrors = 0;
-                
+
             } catch (e) {
                 telemetryErrors++;
-                
+
                 let errorMsg = `Telemetry error (${telemetryErrors}): `;
                 if (e.name === 'AbortError') {
                     errorMsg += "Request timeout";
                 } else {
                     errorMsg += e.message;
                 }
-                
+
                 $("#ros-display").innerHTML = `<div style="color: #ff4444;">${errorMsg}</div>`;
-                
+
                 // Update connection status
                 streamConnected.cam1 = false;
                 streamConnected.cam2 = false;
                 updateStatusIndicator(1, false);
                 updateStatusIndicator(2, false);
-                
+
                 // Slow down on repeated errors
                 if (telemetryErrors > 5) {
                     await new Promise(resolve => setTimeout(resolve, 2000));
                 }
             }
         }
-        
+
         // Start telemetry polling
         const telemetryInterval = setInterval(fetchTelemetry, 500);
         fetchTelemetry();
-        
+
         // Video stream handling for both cameras
         function setupCameraHandlers(cameraId) {
             const videoElement = $(`#video-stream-${cameraId}`);
-            
-            videoElement.addEventListener("load", function() {
+
+            videoElement.addEventListener("load", function () {
                 console.log(`Camera ${cameraId} stream loaded`);
                 streamConnected[`cam${cameraId}`] = true;
                 updateStatusIndicator(cameraId, true);
             });
-            
-            videoElement.addEventListener("error", function() {
+
+            videoElement.addEventListener("error", function () {
                 console.log(`Camera ${cameraId} stream error, retrying...`);
                 streamConnected[`cam${cameraId}`] = false;
                 updateStatusIndicator(cameraId, false);
-                
+
                 setTimeout(() => {
                     const timestamp = new Date().getTime();
                     this.src = `/video${cameraId}?${timestamp}`;
                 }, 2000);
             });
-            
-            videoElement.addEventListener("abort", function() {
+
+            videoElement.addEventListener("abort", function () {
                 console.log(`Camera ${cameraId} stream aborted`);
                 streamConnected[`cam${cameraId}`] = false;
                 updateStatusIndicator(cameraId, false);
             });
         }
-        
+
         // Setup handlers for both cameras
         setupCameraHandlers(1);
         setupCameraHandlers(2);
-        
+
         // Stream health check
         setInterval(() => {
             if ((!streamConnected.cam1 || !streamConnected.cam2) && telemetryErrors > 3) {
                 console.log("Attempting to reconnect camera streams...");
                 const timestamp = new Date().getTime();
-                
+
                 if (!streamConnected.cam1) {
                     $("#video-stream-1").src = `/video1?${timestamp}`;
                 }
@@ -759,9 +796,9 @@
                 }
             }
         }, 10000);
-        
+
         // Page visibility handling
-        document.addEventListener("visibilitychange", function() {
+        document.addEventListener("visibilitychange", function () {
             if (document.hidden) {
                 console.log("Page hidden, reducing update frequency");
                 clearInterval(telemetryInterval);
@@ -771,7 +808,7 @@
                 setInterval(fetchTelemetry, 500);
             }
         });
-        
+
         // Set initial loading status
         $("#status-dot-1").className = "status-indicator status-loading";
         $("#status-dot-2").className = "status-indicator status-loading";
@@ -780,4 +817,5 @@
         $("#cam2-status").innerText = "Connecting...";
     </script>
 </body>
+
 </html>
