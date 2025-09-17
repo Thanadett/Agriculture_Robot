@@ -17,7 +17,6 @@ public:
   {
     int sda = I2C_SDA_PIN, scl = I2C_SCL_PIN;
     float loop_hz = IMU_HZ;
-    const char *frame_id = IMU_FRAME;
     float cf_alpha = CF_ALPHA;
     int calib_samples = IMU_CALIB_SAMPLES;
     mpu6050_accel_range_t acc_range = MPU6050_RANGE_4_G;

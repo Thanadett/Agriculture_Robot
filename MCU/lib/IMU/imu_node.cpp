@@ -4,7 +4,13 @@
 #include "rosidl_runtime_c/string_functions.h"
 #include <rclc/rclc.h>
 #include <rclc/executor.h>
-#include <rclc/timer.h> // --- PATCH: ใช้ default2
+#include <rclc/timer.h>
+
+// ---- rclc default2 shim (รองรับ rclc รุ่นเก่า) ----
+#ifndef rclc_timer_init_default2
+#define rclc_timer_init_default2(timer, support, period_ns, cb, autostart) \
+  rclc_timer_init_default((timer), (support), (period_ns), (cb))
+#endif
 
 static ImuPublisher *g_self = nullptr;
 
@@ -164,10 +170,10 @@ bool ImuPublisher::init(const Params &p,
 
   // --- Header frame id ---
   // imu_msg_.header.frame_id ถูก __init แล้ว สามารถ assign ได้เลย
-  if (!rosidl_runtime_c__String__assign(&imu_msg_.header.frame_id, params_.frame_id))
-  {
-    return false;
-  }
+  // if (!rosidl_runtime_c__String__assign(&imu_msg_.header.frame_id, params_.frame_id))
+  // {
+  //   return false;
+  // }
 
   // --- Covariance (double) ---
   auto sq = [](double x)

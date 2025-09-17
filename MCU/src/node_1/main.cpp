@@ -1,466 +1,157 @@
 #ifdef Node1
+/*************************************************************
+ * main.cpp  (ESP32 / Arduino / PlatformIO)
+ * Integrates: QuadEncoderReader + ImuPublisher + BodyPID + motorDrive
+ * - micro-ROS subscriber: /drive_cmd (std_msgs/Float32MultiArray [v,w])
+ * - Deterministic loop @ CONTROL_HZ
+ *************************************************************/
+
 #include <Arduino.h>
-#include <string.h> // เพิ่มสำหรับ memset
-#include <ctype.h>  // --- PATCH: ใช้ isspace แทน isWhitespace
+#include "config.h"               // uses your macros for pins/rates/frames
 
 #include <micro_ros_platformio.h>
-
 #include <rcl/rcl.h>
-#include <rcl/error_handling.h>
 #include <rclc/rclc.h>
 #include <rclc/executor.h>
+#include <std_msgs/msg/float32_multi_array.h>
 
-// ROS msgs
-#include <nav_msgs/msg/odometry.h>
-#include <geometry_msgs/msg/twist.h>
-#include <std_msgs/msg/bool.h>
-#include <rosidl_runtime_c/string_functions.h>
-
-// โมดูลเรา
-#include "config.h"
 #include "encoder_read.h"
 #include "imu_node.h"
 #include "motorDrive.h"
-#if USE_BODY_PID_ESP32
-#include "controller/body_pid.h"
+#include "pid.h"
+
+// =================== Rates / gains (override-safe) ===================
+#ifndef CONTROL_HZ
+#define CONTROL_HZ 200.0f           // default if not set in config.h
 #endif
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+// If you prefer to rely on pid.h BODY_* defaults, comment these two lines.
+static constexpr float KP_V = 0.6f, KI_V = 12.0f, KD_V = 0.0f;
+static constexpr float KP_W = 0.6f, KI_W = 12.0f, KD_W = 0.0f;
+static constexpr float I_V_ABS = 200.0f, I_W_ABS = 200.0f;
 
-// --------- micro-ROS objects ----------
-rcl_allocator_t allocator;
-rclc_support_t support;
-rcl_node_t node;
-rclc_executor_t executor;
+// =================== Modules ===================
+QuadEncoderReader enc;           // pins/filters come from config.h
+ImuPublisher      imu;
+BodyPID           body_pid(&enc);
 
-rcl_publisher_t odom_pub;
-rcl_subscription_t cmdvel_sub;
-rcl_subscription_t estop_sub;
-rcl_timer_t control_timer;
-rcl_timer_t odom_timer;
+// =================== micro-ROS ===================
+rcl_allocator_t    g_alloc;
+rclc_support_t     g_support;
+rcl_node_t         g_node;
+rcl_subscription_t g_sub;
+rclc_executor_t    g_exec;
 
-geometry_msgs__msg__Twist cmdvel_msg;
-std_msgs__msg__Bool estop_msg;
-nav_msgs__msg__Odometry odom_msg;
+// Pre-allocated sub message buffer
+static std_msgs__msg__Float32MultiArray g_sub_msg;
+static float g_sub_buf[4];       // we use [0]=v, [1]=w
 
-// --------- modules ----------
-QuadEncoderReader enc;
-ImuPublisher imu;
+// Minimal command state (written in callback)
+static volatile float    g_cmd_v = 0.0f;
+static volatile float    g_cmd_w = 0.0f;
+static volatile uint32_t g_cmd_stamp_ms = 0;
 
-#if USE_BODY_PID_ESP32
-BodyPID body(&enc);
-#endif
-
-// --------- states ----------
-static volatile float v_cmd = 0.0f, w_cmd = 0.0f;
-static float x_ = 0.0f, y_ = 0.0f, yaw_ = 0.0f;
-static float v_last = 0.0f, w_last = 0.0f;
-extern bool estop; // จาก motorDrive.h
-
-// --- PATCH: ใช้ epoch time ของ micro-ROS ถ้ามี time sync; ถ้าไม่มี fallback ไป m0icros()
-extern "C" int64_t rmw_uros_epoch_nanos(void); // ถ้าไม่มี time sync จะคืน 0
-static inline int64_t now_nanos()
+// =================== Subscriber callback ===================
+static void drive_cmd_cb(const void* msgin)
 {
-  int64_t t = rmw_uros_epoch_nanos();
-  if (t > 0)
-    return t;
-  return (int64_t)micros() * 1000LL; // fallback (อาจ overflow ทุก ~71 นาที)
-}
-
-// ----- Serial commands (optional) -----
-#if CMD_SERIAL_ENABLE
-// rx_line ถูก declare เป็น extern ใน motorDrive.h แล้ว - ไม่ต้อง declare ซ้ำ
-static bool startsWith_(const String &s, const char *p)
-{
-  size_t n = strlen(p);
-  return s.length() >= (int)n && s.substring(0, n).equalsIgnoreCase(p);
-}
-static bool parseFloatAfterEquals_(const String &s, const char *key, float &out)
-{
-  int idx = s.indexOf(key);
-  if (idx < 0)
-    return false;
-  idx += strlen(key);
-  int end = idx;
-  // --- PATCH: ใช้ isspace() มาตรฐานแทน isWhitespace
-  while (end < (int)s.length() && !isspace((unsigned char)s[end]))
-    end++;
-  out = s.substring(idx, end).toFloat();
-  return true;
-}
-static void handleLine_(String line)
-{
-  line.trim();
-  if (line.isEmpty())
-    return;
-
-  if (startsWith_(line, "ESTOP"))
-  {
-    int sp = line.indexOf(' '), val = 1;
-    if (sp >= 0)
-    {
-      String tail = line.substring(sp + 1);
-      tail.trim();
-      val = tail.toInt();
-    }
-    estop = (val != 0);
-    return;
-  }
-
-  if (startsWith_(line, "VW"))
-  {
-    float V = 0, W = 0;
-    bool okV = parseFloatAfterEquals_(line, "V=", V);
-    bool okW = parseFloatAfterEquals_(line, "W=", W);
-    if (okV && okW)
-    {
-      v_cmd = V;
-      w_cmd = W;
-    }
-    return;
-  }
-}
-static void serial_poll_()
-{
-  while (Serial.available() > 0)
-  {
-    char c = (char)Serial.read();
-    if (c == '\r' || c == '\n')
-    {
-      if (rx_line.length() > 0)
-      {
-        handleLine_(rx_line);
-        rx_line = "";
-      }
-    }
-    else
-    {
-      if (rx_line.length() < 240)
-        rx_line += c;
-    }
-  }
-}
-#endif
-
-// --------- ROS callbacks ----------
-static void cmdvel_cb(const void *msgin)
-{
-  auto msg = (const geometry_msgs__msg__Twist *)msgin;
-  v_cmd = (float)msg->linear.x;
-  w_cmd = (float)msg->angular.z;
-
-// --- PATCH: ป้องกันคำสั่งหลุดขอบ (ถ้ากำหนดไว้ใน config.h)
-#ifdef BODY_V_MAX
-  v_cmd = constrain(v_cmd, -BODY_V_MAX, BODY_V_MAX);
-#endif
-#ifdef BODY_W_MAX
-  w_cmd = constrain(w_cmd, -BODY_W_MAX, BODY_W_MAX);
-#endif
-}
-static void estop_cb(const void *msgin)
-{
-  const std_msgs__msg__Bool *m = (const std_msgs__msg__Bool *)msgin;
-  estop = m->data;
-}
-
-// --------- timers ----------
-static void control_timer_cb(rcl_timer_t *, int64_t)
-{
-  const float dt = 1.0f / CONTROL_HZ;
-
-  enc.update();
-
-#if USE_BODY_PID_ESP32
-  const float gz_imu = 0.0f; // ถ้าจะใช้ IMU yaw-rate: setImuWeight>0 แล้วอ่านจาก imu.getYawRateRad()
-  body.step(v_cmd, w_cmd, gz_imu, dt);
-#else
-  cmdVW_to_targets(v_cmd, w_cmd);
-#endif
-
-  motorDrive_update();
-
-  enc.bodyTwistFromWheels(v_last, w_last);
-
-  x_ += v_last * cosf(yaw_) * dt;
-  y_ += v_last * sinf(yaw_) * dt;
-  yaw_ += w_last * dt;
-
-  if (yaw_ > M_PI)
-    yaw_ -= 2.0f * M_PI;
-  if (yaw_ < -M_PI)
-    yaw_ += 2.0f * M_PI;
-}
-
-static void odom_timer_cb(rcl_timer_t *, int64_t)
-{
-  const int64_t t = now_nanos();
-  odom_msg.header.stamp.sec = (int32_t)(t / 1000000000LL);
-  odom_msg.header.stamp.nanosec = (uint32_t)(t % 1000000000LL);
-
-  odom_msg.pose.pose.position.x = x_;
-  odom_msg.pose.pose.position.y = y_;
-  odom_msg.pose.pose.position.z = 0.0f;
-
-  const float cy = cosf(yaw_ * 0.5f), sy = sinf(yaw_ * 0.5f);
-  odom_msg.pose.pose.orientation.x = 0;
-  odom_msg.pose.pose.orientation.y = 0;
-  odom_msg.pose.pose.orientation.z = sy;
-  odom_msg.pose.pose.orientation.w = cy;
-
-  odom_msg.twist.twist.linear.x = v_last;
-  odom_msg.twist.twist.linear.y = 0.0f;
-  odom_msg.twist.twist.linear.z = 0.0f;
-  odom_msg.twist.twist.angular.x = 0.0f;
-  odom_msg.twist.twist.angular.y = 0.0f;
-  odom_msg.twist.twist.angular.z = w_last;
-
-  rcl_ret_t ret = rcl_publish(&odom_pub, &odom_msg, NULL);
-  if (ret != RCL_RET_OK)
-  {
-    // Handle publish error if needed
+  const auto* m = (const std_msgs__msg__Float32MultiArray*)msgin;
+  if (m->data.data && m->data.size >= 2) {
+    g_cmd_v = m->data.data[0];     // linear m/s
+    g_cmd_w = m->data.data[1];     // yaw rad/s
+    g_cmd_stamp_ms = millis();
   }
 }
 
-// --------- setup / loop ----------
+// =================== Setup ===================
 void setup()
 {
   Serial.begin(115200);
-  delay(2000); // เพิ่ม delay ให้มากขึ้น
+  delay(30);
 
-  // Initialize micro-ROS transport
+  // micro-ROS over USB Serial (change to Serial1 if you want)
   set_microros_serial_transports(Serial);
-  delay(500); // รอให้ transport พร้อม
 
-  // motorDrive เดิม (ปรับให้มัน include "config.h")
-  motorDrive_begin();
+  // --- Init micro-ROS objects ---
+  g_alloc = rcl_get_default_allocator();
+  rclc_support_init(&g_support, 0, NULL, &g_alloc);
+  rclc_node_init_default(&g_node, "esp32_body_node", "", &g_support);
 
-  // Initialize encoder
-  enc.setQuadMode(ENCODER_QUAD_MODE_FULL ? QUAD_FULL : QUAD_HALF);
-  enc.setWheelRadius(WHEEL_RADIUS_M);
-  enc.setTrack(TRACK_M);
-  enc.setPPR(ENCODER_PPR_OUTPUT_DEFAULT);
-  enc.setInvert(ENC_INV_FL == -1, ENC_INV_FR == -1, ENC_INV_RL == -1, ENC_INV_RR == -1);
-  if (VEL_FILTER_MODE == 1)
-    enc.setVelFilterEMA(EMA_ALPHA);
-  else if (VEL_FILTER_MODE == 2)
-    enc.setVelFilterButter2(BW2_FC_HZ, BW2_FS_HZ);
-  enc.begin(true);
+  rclc_subscription_init_default(
+      &g_sub, &g_node,
+      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
+      "/drive_cmd");
 
-  // Initialize micro-ROS (support/node)
-  allocator = rcl_get_default_allocator();
+  rclc_executor_init(&g_exec, &g_support.context, 1, &g_alloc);
+  // Pre-allocate subscriber msg storage (no heap in callback)
+  g_sub_msg.data.data = g_sub_buf;
+  g_sub_msg.data.capacity = (uint32_t)(sizeof(g_sub_buf)/sizeof(g_sub_buf[0]));
+  g_sub_msg.data.size = 0;
+  rclc_executor_add_subscription(&g_exec, &g_sub, &g_sub_msg, &drive_cmd_cb, ON_NEW_DATA);
 
-  rcl_ret_t ret = rclc_support_init(&support, 0, NULL, &allocator);
-  if (ret != RCL_RET_OK)
+  // --- Init hardware modules ---
+  enc.begin(true);                 // internal pullups for encoders (per config.h)
+  motorDrive_begin();              // sets up PWM channels & outputs
   {
-    Serial.println("ERROR: rclc_support_init failed");
-    return;
+    ImuPublisher::Params ip;       // uses defaults from config.h (pins/rates/frame)
+    imu.init(ip, &g_node, &g_support, &g_exec);   // also creates a ROS timer for IMU publish
   }
 
-  ret = rclc_node_init_default(&node, "esp32_robot_node", "", &support);
-  if (ret != RCL_RET_OK)
-  {
-    Serial.println("ERROR: rclc_node_init_default failed");
-    return;
-  }
+  // --- PID wiring ---
+  body_pid.reset();
+  body_pid.setGainsLinear(KP_V, KI_V, KD_V);
+  body_pid.setGainsAngular(KP_W, KI_W, KD_W);
+  body_pid.setIClamp(I_V_ABS, I_W_ABS);
+  // If you prefer the BODY_* limits from config.h (pid.h), omit setLimits().
+  // body_pid.setLimits(BODY_V_MAX, BODY_W_MAX, BODY_AV_MAX, BODY_AW_MAX);
 
-  // Initialize publisher
-  ret = rclc_publisher_init_default(
-      &odom_pub, &node,
-      ROSIDL_GET_MSG_TYPE_SUPPORT(nav_msgs, msg, Odometry),
-      "wheel/odom");
-  if (ret != RCL_RET_OK)
-  {
-    Serial.println("ERROR: rclc_publisher_init_default failed");
-    return;
-  }
-
-  // --- PATCH: ใช้ __init เพื่อ init ภายใน struct (รวม string)
-  nav_msgs__msg__Odometry__init(&odom_msg);
-
-  // --- PATCH: assign string แล้วเช็คผลเป็น bool (true=ok)
-  if (!rosidl_runtime_c__String__assign(&odom_msg.header.frame_id, ODOM_FRAME))
-  {
-    Serial.println("ERROR: Failed to assign odom frame_id");
-    return;
-  }
-  if (!rosidl_runtime_c__String__assign(&odom_msg.child_frame_id, BASE_FRAME))
-  {
-    Serial.println("ERROR: Failed to assign child frame_id");
-    return;
-  }
-
-  // Initialize covariance matrices
-  for (int i = 0; i < 36; i++)
-  {
-    odom_msg.pose.covariance[i] = 0.0;
-    odom_msg.twist.covariance[i] = 0.0;
-  }
-  odom_msg.pose.covariance[0] = 0.05f * 0.05f;                                     // x
-  odom_msg.pose.covariance[7] = 0.05f * 0.05f;                                     // y
-  odom_msg.pose.covariance[35] = (2.0f * M_PI / 180.0f) * (2.0f * M_PI / 180.0f);  // yaw
-  odom_msg.twist.covariance[0] = 0.10f * 0.10f;                                    // vx
-  odom_msg.twist.covariance[35] = (3.0f * M_PI / 180.0f) * (3.0f * M_PI / 180.0f); // wz
-
-  // Initialize cmd_vel & estop message (ศูนย์ค่าเริ่มต้น)
-  memset(&cmdvel_msg, 0, sizeof(cmdvel_msg));
-  memset(&estop_msg, 0, sizeof(estop_msg));
-
-  // Initialize subscriptions
-  ret = rclc_subscription_init_default(
-      &cmdvel_sub, &node,
-      ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
-      "cmd_vel");
-  if (ret != RCL_RET_OK)
-  {
-    Serial.println("ERROR: cmdvel subscription init failed");
-    return;
-  }
-
-  ret = rclc_subscription_init_default(
-      &estop_sub, &node,
-      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
-      "estop");
-  if (ret != RCL_RET_OK)
-  {
-    Serial.println("ERROR: estop subscription init failed");
-    return;
-  }
-
-  // Initialize timers
-  ret = rclc_timer_init_default2(
-      &control_timer, &support,
-      RCL_MS_TO_NS((int)(1000.0f / CONTROL_HZ)),
-      control_timer_cb,
-    true /* autostart */);
-  if (ret != RCL_RET_OK)
-  {
-    Serial.println("ERROR: control timer init failed");
-    return;
-  }
-
-  ret = rclc_timer_init_default2(
-      &odom_timer, &support,
-      RCL_MS_TO_NS((int)(1000.0f / ODOM_HZ)),
-      odom_timer_cb,
-    true /* autostart */);
-  if (ret != RCL_RET_OK)
-  {
-    Serial.println("ERROR: odom timer init failed");
-    return;
-  }
-
-  // --- PATCH: ต้อง init executor "ก่อน" imu.init(...) และกัน handle ให้พอ (เผื่อ IMU)
-  const size_t EXEC_HANDLES = 8; // 2 timers + 2 subs + (IMU pub+timer) + margin
-  ret = rclc_executor_init(&executor, &support.context, EXEC_HANDLES, &allocator);
-  if (ret != RCL_RET_OK)
-  {
-    Serial.println("ERROR: executor init failed");
-    return;
-  }
-
-  // Add components to executor (ของ main)
-  ret = rclc_executor_add_timer(&executor, &control_timer);
-  if (ret != RCL_RET_OK)
-  {
-    Serial.println("ERROR: add control timer failed");
-    return;
-  }
-
-  ret = rclc_executor_add_timer(&executor, &odom_timer);
-  if (ret != RCL_RET_OK)
-  {
-    Serial.println("ERROR: add odom timer failed");
-    return;
-  }
-
-  ret = rclc_executor_add_subscription(&executor, &cmdvel_sub, &cmdvel_msg, &cmdvel_cb, ON_NEW_DATA);
-  if (ret != RCL_RET_OK)
-  {
-    Serial.println("ERROR: add cmdvel subscription failed");
-    return;
-  }
-
-  ret = rclc_executor_add_subscription(&executor, &estop_sub, &estop_msg, &estop_cb, ON_NEW_DATA);
-  if (ret != RCL_RET_OK)
-  {
-    Serial.println("ERROR: add estop subscription failed");
-    return;
-  }
-
-  // Initialize IMU (หลัง executor พร้อมแล้ว เพื่อให้ imu เพิ่ม handle ของตัวเองได้)
-  ImuPublisher::Params ip;
-  ip.sda = I2C_SDA_PIN;
-  ip.scl = I2C_SCL_PIN;
-  ip.loop_hz = IMU_HZ;
-  ip.frame_id = IMU_FRAME;
-  ip.cf_alpha = CF_ALPHA;
-  ip.calib_samples = IMU_CALIB_SAMPLES;
-  imu.init(ip, &node, &support, &executor); // --- PATCH: ย้ายมาหลัง executor_init & add ของหลักแล้ว
-
-#if USE_BODY_PID_ESP32
-  body.setGainsLinear(BODY_KP_V, BODY_KI_V, BODY_KD_V);
-  body.setGainsAngular(BODY_KP_W, BODY_KI_W, BODY_KD_W);
-  body.setLimits(BODY_V_MAX, BODY_W_MAX, BODY_AV_MAX, BODY_AW_MAX);
-  body.setImuWeight(BODY_IMU_WEIGHT);
-  body.setIClamp(BODY_I_V_ABS, BODY_I_W_ABS);
-#endif
-
-  Serial.println(
-#if USE_BODY_PID_ESP32
-      "READY: Mode A (Body PID on ESP32) | CONTROL@200Hz, ODOM@50Hz | Serial: 'VW V=<m/s> W=<rad/s>'"
-#else
-      "READY: Mode B (Pass-through /cmd_vel) | CONTROL@200Hz, ODOM@50Hz | Serial: 'VW V=<m/s> W=<rad/s>'"
-#endif
-  );
+  g_cmd_stamp_ms = millis();
+  Serial.println("[setup] ESP32 body control ready.");
 }
 
+// =================== Loop ===================
 void loop()
 {
-#if CMD_SERIAL_ENABLE
-  serial_poll_();
-#endif
-  rclc_executor_spin_some(&executor, RCL_MS_TO_NS(2));
+  // Keep ROS responsive without blocking
+  rclc_executor_spin_some(&g_exec, 1000);   // 1 ms budget
+
+  // Deterministic control period
+  static uint32_t last_us = micros();
+  const uint32_t period_us = (uint32_t)(1000000.0f / CONTROL_HZ);
+  const uint32_t now_us = micros();
+  const uint32_t dt_us = now_us - last_us;
+  if (dt_us < period_us) {
+    delayMicroseconds(50);
+    return;
+  }
+  last_us = now_us;
+  const float dt = dt_us * 1e-6f;
+
+  // 1) Encoder integration (velocity estimation & filters per config.h)
+  enc.update();
+
+  // 2) Command freshness (simple watchdog)
+  const uint32_t now_ms = millis();
+  const bool fresh = (now_ms - g_cmd_stamp_ms) < 300;  // 300 ms timeout
+  const float v_ref = fresh ? g_cmd_v : 0.0f;
+  const float w_ref = fresh ? g_cmd_w : 0.0f;
+
+  // 3) Run body-level PID (uses enc -> bodyTwist, IMU yaw rate)
+  body_pid.step(v_ref, w_ref, imu.getYawRateRad(), dt);
+
+  // 4) Drive motors (slew limiting & PWM write)
+  motorDrive_update();
+
+  // 5) Low-rate debug (safe to enable at small PRINT_HZ)
+  #ifdef MOTOR_CTRL_PRINT_HZ
+  static uint32_t div = 0;
+  const uint32_t every = (uint32_t)(CONTROL_HZ / (float)MOTOR_CTRL_PRINT_HZ);
+  if (++div >= (every ? every : 1U)) {
+    div = 0;
+    float v_enc=0, w_enc=0;
+    enc.bodyTwistFromWheels(v_enc, w_enc);
+    Serial.printf("v_ref=%.3f w_ref=%.3f | v=%.3f w=%.3f | gz=%.3f\n",
+                  v_ref, w_ref, v_enc, w_enc, imu.getYawRateRad());
+  }
+  #endif
 }
 #endif
-
-
-
-
-
-
-
-
-// #ifdef Node1
-// #include <Arduino.h>
-// #include "motorDrive.h"
-
-
-// void setup() {
-//   Serial.begin(115200);
-//   delay(200);
-
-//   // เริ่มระบบขับเคลื่อน (คงโค้ด motorDrive เดิม)
-//   motorDrive_begin();
-
-// }
-
-// void loop() {
-//   // 1) รับคำสั่งจาก Serial (VW, P, PW4, ESTOP) และตั้งเป้าหมาย PWM
-//   motorDrive_handleSerialOnce();
-
-//   // 3) ทำ watchdog + ส่ง PWM ไปมอเตอร์
-//   motorDrive_update();
-
-//     // 4) ส่งฟีดแบ็กออก Serial เป็นช่วงๆ
-//   static uint32_t last = 0;
-//   const uint32_t FEEDBACK_INTERVAL_MS = 500;  // <- ปรับตรงนี้ได้ (เช่น 100, 200, 500)
-//   if (millis() - last >= FEEDBACK_INTERVAL_MS) {
-//     last = millis();
-//   }
-
-
-//   delay(2);
-// }
-// #endif

@@ -5,18 +5,11 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-// // ================== โหมดระบบ (เลือก A/B) ==================
-// // 1 = PID (v,ω) บน ESP32, 0 = ไม่ทำ PID (ผ่าน /cmd_vel ตรงเข้ามอเตอร์)
-// #define USE_PID_ESP32 1
 
 // ================== ความถี่ลูป/หัวข้อ ROS ==================
 #define CONTROL_HZ 200.0f // ลูปควบคุมหลัก (อ่าน encoder + PID/pass-through + motorDrive_update)
 #define ODOM_HZ 50.0f     // publish wheel/odom
 #define IMU_HZ 100.0f     // publish imu/data
-
-// #define ODOM_FRAME "odom"
-// #define BASE_FRAME "base_link"
-// #define IMU_FRAME "imu_link"
 
 // ================== พารามิเตอร์ตัวรถ ==================
 #define WHEEL_RADIUS_M 0.0635f                                // m
@@ -113,5 +106,4 @@ static constexpr int CH_RR_IN2 = 7;
 #define BODY_I_W_ABS 0.80f
 #define BODY_IMU_WEIGHT 0.0f // 0=ใช้ encoder ล้วน, 0..1 ผสม IMU yaw-rate
 
-// ================== อื่นๆ ==================
-#define CMD_SERIAL_ENABLE 1 // พิมพ์ "VW V= W=" และ "ESTOP 0|1" ทาง Serial ได้
+
