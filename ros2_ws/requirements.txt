@@ -1,5 +1,9 @@
 # pip install -r requirements.txt
 
+# กล้องต้องเพิ่ม
+# sudo apt install libturbojpeg
+# sudo apt install libgl1 libglib2.0-0
+# sudo apt install v4l-utils *ไม่จำเป็น
 
 # Core runtime dependencies
 Flask>=3.0
@@ -10,3 +14,7 @@ PyTurboJPEG>=1.7.6
 
 # Build tools
 setuptools>=65
+
+
+PyYAML>=6.0
+typeguard>=2.13

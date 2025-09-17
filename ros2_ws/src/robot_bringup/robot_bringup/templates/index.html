@@ -18,8 +18,6 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            align-items: center;
             padding: 20px;
             line-height: 1.6;
         }
@@ -28,59 +26,84 @@
             margin-bottom: 30px; 
             color: orange;
             text-align: center;
-            font-size: 3rem;
+            font-size: 2.5rem;
             font-weight: 600;
             letter-spacing: -0.025em;
             text-shadow: 1px 1px 6px rgba(0,0,0,0.7);
         }
         
-        #video-container { 
+        .main-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            height: calc(100vh - 120px);
+            max-width: 1800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .cameras-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .camera-container { 
             position: relative; 
             display: flex;
             justify-content: center;
             align-items: center;
-            margin: 20px 0;
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
             background: #2a2a2a;
-            padding: 8px;
+            padding: 6px;
+            flex: none;
+            max-width: 900px;      
+            aspect-ratio: 16 / 9;  
         }
         
-        #video-stream { 
-            width: 800px; 
-            height: 600px; 
+        .camera-stream { 
+            width: 100%; 
+            height: 100%; 
             border-radius: 8px;
             display: block;
             background: #000;
             border: 1px solid #3a3a3a;
+            object-fit: contain;
         }
         
-        #overlay { 
+        .camera-overlay { 
             position: absolute; 
-            top: 18px; 
-            left: 18px; 
+            top: 12px; 
+            left: 12px; 
             color: #10a37f; 
             background: rgba(26, 26, 26, 0.9);
             backdrop-filter: blur(8px);
-            padding: 10px 14px; 
+            padding: 8px 12px; 
             font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace; 
-            font-size: 13px;
-            border-radius: 8px;
+            font-size: 12px;
+            border-radius: 6px;
             border: 1px solid rgba(58, 58, 58, 0.6);
             font-weight: 500;
+        }
+        
+        .data-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+            padding-right: 10px;
         }
         
         .info-panel {
             background: rgba(42, 42, 42, 0.8);
             backdrop-filter: blur(12px);
-            padding: 24px;
-            margin: 16px 0;
+            padding: 20px;
             border-radius: 12px;
             border: 1px solid rgba(58, 58, 58, 0.3);
-            min-width: 420px;
-            text-align: left;
             box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            flex-shrink: 0;
         }
         
         .info-panel h2 {
@@ -89,27 +112,9 @@
             font-size: 1rem;
             font-weight: 600;
             letter-spacing: -0.025em;
-        }
-        
-        #telemetry { 
-            background: rgba(16, 16, 16, 0.9);
-            color: #10a37f;
-            padding: 16px; 
-            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace; 
-            max-height: 300px; 
-            overflow-y: auto; 
-            border-radius: 8px;
-            font-size: 12px;
-            line-height: 1.5;
-            white-space: pre-wrap;
-            border: 1px solid rgba(58, 58, 58, 0.3);
-        }
-        
-        #timestamp {
-            color: #b0b0b0;
-            font-size: 14px;
-            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
-            font-weight: 400;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         
         .status-indicator {
@@ -117,7 +122,6 @@
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            margin-right: 10px;
             animation: pulse 2s infinite;
         }
         
@@ -156,104 +160,190 @@
         
         .info-label {
             color: #b0b0b0;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 400;
         }
         
         .info-value {
             color: #e8e8e8;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
             font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
         }
         
-        @media (max-width: 900px) {
-            #video-stream {
-                width: 90vw;
-                max-width: 800px;
+        .ros-data {
+            background: rgba(16, 16, 16, 0.9);
+            color: #10a37f;
+            padding: 12px;
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+            max-height: 300px;
+            overflow-y: auto;
+            border-radius: 8px;
+            font-size: 11px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            border: 1px solid rgba(58, 58, 58, 0.3);
+        }
+        
+        .camera-grid {
+            display: grid;
+            grid-template-rows: 1fr 1fr;
+            gap: 15px;
+            height: 100%;
+        }
+        
+        .topic-section {
+            margin-bottom: 15px;
+        }
+        
+        .topic-title {
+            color: #ffa500;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+        
+        .topic-data {
+            background: rgba(26, 26, 26, 0.5);
+            padding: 8px;
+            border-radius: 4px;
+            border-left: 3px solid #10a37f;
+            font-size: 10px;
+            line-height: 1.3;
+        }
+        
+        .value-highlight {
+            color: #7dd3fc;
+            font-weight: 600;
+        }
+        
+        .timestamp-display {
+            color: #b0b0b0;
+            font-size: 12px;
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+            text-align: center;
+            margin-top: 10px;
+        }
+        
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 2fr 1fr;
+            }
+            
+            .cameras-section {
+                flex-direction: row;
+            }
+            
+            .camera-grid {
+                grid-template-rows: none;
+                grid-template-columns: 1fr 1fr;
                 height: auto;
-                aspect-ratio: 800/600;
             }
             
-            .info-panel {
-                min-width: 90vw;
-                max-width: 500px;
-            }
-            
-            h1 {
-                font-size: 1.5rem;
+            .data-section {
+                max-height: 400px;
             }
         }
         
-        @media (max-width: 600px) {
-            body {
-                padding: 16px;
-            }
-            
-            #overlay {
-                font-size: 12px;
-                padding: 8px 12px;
-            }
-            
+        @media (max-width: 768px) {
             h1 {
-                font-size: 1.3rem;
+                font-size: 1.8rem;
             }
             
-            .info-panel {
-                padding: 20px;
+            .cameras-section {
+                flex-direction: column;
+            }
+            
+            .camera-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr 1fr;
+            }
+            
+            .main-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto;
+                height: auto;
+            }
+            
+            .data-section {
+                max-height: none;
             }
         }
         
         /* Scrollbar styling */
-        #telemetry::-webkit-scrollbar {
+        .ros-data::-webkit-scrollbar, .data-section::-webkit-scrollbar {
             width: 6px;
         }
         
-        #telemetry::-webkit-scrollbar-track {
+        .ros-data::-webkit-scrollbar-track, .data-section::-webkit-scrollbar-track {
             background: rgba(26, 26, 26, 0.5);
             border-radius: 3px;
         }
         
-        #telemetry::-webkit-scrollbar-thumb {
+        .ros-data::-webkit-scrollbar-thumb, .data-section::-webkit-scrollbar-thumb {
             background: rgba(16, 163, 127, 0.6);
             border-radius: 3px;
         }
         
-        #telemetry::-webkit-scrollbar-thumb:hover {
+        .ros-data::-webkit-scrollbar-thumb:hover, .data-section::-webkit-scrollbar-thumb:hover {
             background: rgba(16, 163, 127, 0.8);
-        }
-        
-        /* Firefox scrollbar */
-        #telemetry {
-            scrollbar-width: thin;
-            scrollbar-color: rgba(16, 163, 127, 0.6) rgba(26, 26, 26, 0.5);
         }
     </style>
 </head>
 <body>
     <h1>Robot Camera Stream</h1>
     
-    <div id="video-container">
-        <img id="video-stream" src="/video" alt="Camera Stream">
-        <div id="overlay">
-            <span class="status-indicator status-connected" id="status-dot"></span>
-            FPS: <span id="fps">0</span> 
+    <div class="main-container">
+        <!-- Left side - Cameras -->
+        <div class="cameras-section">
+            <div class="camera-grid">
+                <div class="camera-container">
+                    <img id="video-stream-1" class="camera-stream" src="/video1" alt="Camera 1 Stream">
+                    <div class="camera-overlay">
+                        <span class="status-indicator status-loading" id="status-dot-1"></span>
+                        CAM1 FPS: <span id="fps-1">0</span> 
+                    </div>
+                </div>
+                
+                <div class="camera-container">
+                    <img id="video-stream-2" class="camera-stream" src="/video2" alt="Camera 2 Stream">
+                    <div class="camera-overlay">
+                        <span class="status-indicator status-loading" id="status-dot-2"></span>
+                        CAM2 FPS: <span id="fps-2">0</span>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
-    
-    <div class="info-panel">
-        <h2>System Information</h2>
-        <div class="info-row">
-            <span class="info-label">Timestamp:</span>
-            <span class="info-value" id="timestamp">Loading...</span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Stream Status:</span>
-            <span class="info-value" id="stream-status">Connecting...</span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Resolution:</span>
-            <span class="info-value" id="resolution-display">800×600 @ 30fps</span>
+        
+        <!-- Right side - Data panels -->
+        <div class="data-section">
+            <div class="info-panel">
+                <h2>
+                    <span class="status-indicator status-connected" id="system-status"></span>
+                    System Status
+                </h2>
+                <div class="info-row">
+                    <span class="info-label">Camera 1 Status:</span>
+                    <span class="info-value" id="cam1-status">Connecting...</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Camera 2 Status:</span>
+                    <span class="info-value" id="cam2-status">Connecting...</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Resolution:</span>
+                    <span class="info-value" id="resolution-display">800×600 @ 30fps</span>
+                </div>
+                <div class="timestamp-display" id="timestamp">Loading...</div>
+            </div>
+
+            <div class="info-panel">
+                <h2>🎮 ROS Topics Data</h2>
+                <div class="ros-data" id="ros-display">
+                    Loading ROS topic data...
+                </div>
+            </div>
         </div>
     </div>
 
@@ -262,7 +352,7 @@
         const $ = (sel) => document.querySelector(sel);
         
         // Global state
-        let streamConnected = false;
+        let streamConnected = {cam1: false, cam2: false};
         let telemetryErrors = 0;
         let cameraConfig = {
             width: 800,
@@ -294,9 +384,9 @@
         updateTimestamp();
         
         // Update status indicator
-        function updateStatusIndicator(connected) {
-            const dot = $("#status-dot");
-            const status = $("#stream-status");
+        function updateStatusIndicator(camera, connected) {
+            const dot = $(`#status-dot-${camera}`);
+            const status = $(`#cam${camera}-status`);
             
             if (connected) {
                 dot.className = "status-indicator status-connected";
@@ -304,6 +394,16 @@
             } else {
                 dot.className = "status-indicator status-disconnected";
                 status.innerText = "Disconnected";
+            }
+            
+            // Update system status
+            const systemDot = $("#system-status");
+            if (streamConnected.cam1 && streamConnected.cam2) {
+                systemDot.className = "status-indicator status-connected";
+            } else if (streamConnected.cam1 || streamConnected.cam2) {
+                systemDot.className = "status-indicator status-loading";
+            } else {
+                systemDot.className = "status-indicator status-disconnected";
             }
         }
         
@@ -314,13 +414,54 @@
             if (resolutionEl) {
                 resolutionEl.innerText = `${cameraConfig.width}×${cameraConfig.height} @ ${cameraConfig.fps}fps`;
             }
+        }
+        
+        // Format ROS data for display
+        function formatRosData(rosData) {
+            let output = '';
             
-            // Update video element size if needed
-            const videoEl = $("#video-stream");
-            if (videoEl) {
-                videoEl.style.width = `${cameraConfig.width}px`;
-                videoEl.style.height = `${cameraConfig.height}px`;
-            }
+            // CMD_VEL Topic
+            output += `<div class="topic-section">`;
+            output += `<div class="topic-title">/cmd_vel (geometry_msgs/Twist)</div>`;
+            output += `<div class="topic-data">`;
+            output += `Linear:  x=<span class="value-highlight">${rosData.cmd_vel.linear.x.toFixed(2)}</span> `;
+            output += `y=<span class="value-highlight">${rosData.cmd_vel.linear.y.toFixed(2)}</span> `;
+            output += `z=<span class="value-highlight">${rosData.cmd_vel.linear.z.toFixed(2)}</span>\n`;
+            output += `Angular: x=<span class="value-highlight">${rosData.cmd_vel.angular.x.toFixed(2)}</span> `;
+            output += `y=<span class="value-highlight">${rosData.cmd_vel.angular.y.toFixed(2)}</span> `;
+            output += `z=<span class="value-highlight">${rosData.cmd_vel.angular.z.toFixed(2)}</span>`;
+            output += `</div></div>`;
+            
+            // IMU Topic
+            output += `<div class="topic-section">`;
+            output += `<div class="topic-title">/imu (sensor_msgs/Imu)</div>`;
+            output += `<div class="topic-data">`;
+            output += `Orientation: x=<span class="value-highlight">${rosData.imu.orientation.x.toFixed(3)}</span> `;
+            output += `y=<span class="value-highlight">${rosData.imu.orientation.y.toFixed(3)}</span>\n`;
+            output += `             z=<span class="value-highlight">${rosData.imu.orientation.z.toFixed(3)}</span> `;
+            output += `w=<span class="value-highlight">${rosData.imu.orientation.w.toFixed(3)}</span>\n`;
+            output += `AngularVel:  z=<span class="value-highlight">${rosData.imu.angular_velocity.z.toFixed(3)}</span> rad/s`;
+            output += `</div></div>`;
+            
+            // Battery Topic
+            output += `<div class="topic-section">`;
+            output += `<div class="topic-title">/battery_state (sensor_msgs/BatteryState)</div>`;
+            output += `<div class="topic-data">`;
+            output += `Voltage:    <span class="value-highlight">${rosData.battery.voltage.toFixed(1)}V</span>\n`;
+            output += `Percentage: <span class="value-highlight">${rosData.battery.percentage.toFixed(1)}%</span>`;
+            output += `</div></div>`;
+            
+            // Odometry Topic
+            output += `<div class="topic-section">`;
+            output += `<div class="topic-title">/odom (nav_msgs/Odometry)</div>`;
+            output += `<div class="topic-data">`;
+            output += `Position: x=<span class="value-highlight">${rosData.odometry.position.x.toFixed(2)}</span> `;
+            output += `y=<span class="value-highlight">${rosData.odometry.position.y.toFixed(2)}</span>\n`;
+            output += `Velocity: linear=<span class="value-highlight">${rosData.odometry.velocity.linear.toFixed(2)}</span> `;
+            output += `angular=<span class="value-highlight">${rosData.odometry.velocity.angular.toFixed(2)}</span>`;
+            output += `</div></div>`;
+            
+            return output;
         }
         
         // Telemetry fetching
@@ -339,10 +480,20 @@
                 
                 const data = await r.json();
                 
-                // Update overlay data
-                $("#fps").textContent = data.fps?.toFixed(1) || "0";
+                // Update camera data
+                if (data.cameras) {
+                    $("#fps-1").textContent = data.cameras.cam1?.fps?.toFixed(1) || "0";
+                    $("#fps-2").textContent = data.cameras.cam2?.fps?.toFixed(1) || "0";
+                    
+                    // Update connection status
+                    streamConnected.cam1 = data.cameras.cam1?.status === 'active';
+                    streamConnected.cam2 = data.cameras.cam2?.status === 'active';
+                    
+                    updateStatusIndicator(1, streamConnected.cam1);
+                    updateStatusIndicator(2, streamConnected.cam2);
+                }
                 
-                // Update camera configuration if available
+                // Update camera configuration
                 if (data.configured_resolution) {
                     updateCameraConfig({
                         width: data.configured_resolution.width,
@@ -351,33 +502,33 @@
                     });
                 }
                 
+                // Update ROS data
+                if (data.ros_topics) {
+                    $("#ros-display").innerHTML = formatRosData(data.ros_topics);
+                }
+                
                 // Reset error counter on success
                 telemetryErrors = 0;
-                
-                // Update connection status
-                if (!streamConnected) {
-                    streamConnected = true;
-                    updateStatusIndicator(true);
-                }
                 
             } catch (e) {
                 telemetryErrors++;
                 
                 let errorMsg = `Telemetry error (${telemetryErrors}): `;
-                
                 if (e.name === 'AbortError') {
-                    errorMsg += "Request timeout - server may be busy";
+                    errorMsg += "Request timeout";
                 } else {
                     errorMsg += e.message;
                 }
                 
-                // Update connection status
-                if (streamConnected) {
-                    streamConnected = false;
-                    updateStatusIndicator(false);
-                }
+                $("#ros-display").innerHTML = `<div style="color: #ff4444;">${errorMsg}</div>`;
                 
-                // If too many errors, slow down polling
+                // Update connection status
+                streamConnected.cam1 = false;
+                streamConnected.cam2 = false;
+                updateStatusIndicator(1, false);
+                updateStatusIndicator(2, false);
+                
+                // Slow down on repeated errors
                 if (telemetryErrors > 5) {
                     await new Promise(resolve => setTimeout(resolve, 2000));
                 }
@@ -388,40 +539,50 @@
         const telemetryInterval = setInterval(fetchTelemetry, 500);
         fetchTelemetry();
         
-        // Video stream handling
-        const videoElement = $("#video-stream");
-        const streamStatusEl = $("#stream-status");
-        
-        videoElement.addEventListener("load", function() {
-            console.log("Video stream loaded successfully");
-            streamConnected = true;
-            updateStatusIndicator(true);
-        });
-        
-        videoElement.addEventListener("error", function() {
-            console.log("Video stream error, attempting to reload...");
-            streamConnected = false;
-            updateStatusIndicator(false);
+        // Video stream handling for both cameras
+        function setupCameraHandlers(cameraId) {
+            const videoElement = $(`#video-stream-${cameraId}`);
             
-            // Wait a bit before retrying
-            setTimeout(() => {
-                const timestamp = new Date().getTime();
-                this.src = "/video?" + timestamp;
-            }, 2000);
-        });
+            videoElement.addEventListener("load", function() {
+                console.log(`Camera ${cameraId} stream loaded`);
+                streamConnected[`cam${cameraId}`] = true;
+                updateStatusIndicator(cameraId, true);
+            });
+            
+            videoElement.addEventListener("error", function() {
+                console.log(`Camera ${cameraId} stream error, retrying...`);
+                streamConnected[`cam${cameraId}`] = false;
+                updateStatusIndicator(cameraId, false);
+                
+                setTimeout(() => {
+                    const timestamp = new Date().getTime();
+                    this.src = `/video${cameraId}?${timestamp}`;
+                }, 2000);
+            });
+            
+            videoElement.addEventListener("abort", function() {
+                console.log(`Camera ${cameraId} stream aborted`);
+                streamConnected[`cam${cameraId}`] = false;
+                updateStatusIndicator(cameraId, false);
+            });
+        }
         
-        videoElement.addEventListener("abort", function() {
-            console.log("Video stream aborted");
-            streamConnected = false;
-            updateStatusIndicator(false);
-        });
+        // Setup handlers for both cameras
+        setupCameraHandlers(1);
+        setupCameraHandlers(2);
         
-        // Check stream health periodically
+        // Stream health check
         setInterval(() => {
-            if (!streamConnected && telemetryErrors > 3) {
-                console.log("Attempting to reconnect video stream...");
+            if ((!streamConnected.cam1 || !streamConnected.cam2) && telemetryErrors > 3) {
+                console.log("Attempting to reconnect camera streams...");
                 const timestamp = new Date().getTime();
-                videoElement.src = "/video?" + timestamp;
+                
+                if (!streamConnected.cam1) {
+                    $("#video-stream-1").src = `/video1?${timestamp}`;
+                }
+                if (!streamConnected.cam2) {
+                    $("#video-stream-2").src = `/video2?${timestamp}`;
+                }
             }
         }, 10000);
         
@@ -437,18 +598,12 @@
             }
         });
         
-        // Set initial status
-        $("#status-dot").className = "status-indicator status-loading";
-        $("#stream-status").innerText = "Connecting...";
-        
-        // Performance monitoring
-        let frameCount = 0;
-        setInterval(() => {
-            frameCount++;
-            if (frameCount % 120 === 0) { // Every 120 intervals (60 seconds)
-                console.log(`Performance: ${frameCount} telemetry updates, Stream: ${streamConnected ? 'Connected' : 'Disconnected'}`);
-            }
-        }, 500);
+        // Set initial loading status
+        $("#status-dot-1").className = "status-indicator status-loading";
+        $("#status-dot-2").className = "status-indicator status-loading";
+        $("#system-status").className = "status-indicator status-loading";
+        $("#cam1-status").innerText = "Connecting...";
+        $("#cam2-status").innerText = "Connecting...";
     </script>
 </body>
 </html>

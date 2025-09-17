@@ -11,30 +11,39 @@ from flask import Flask, Response, render_template, jsonify
 
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-log = logging.getLogger("lowlag-stream")
+log = logging.getLogger("camera-stream")
 
 # ---------------- Flask ----------------
 app = Flask(__name__)
 
-# ---------------- Globals ----------------
-latest_jpeg = None
-jpeg_lock = threading.Lock()
-new_frame_event = threading.Event()
+# ---------------- Globals for Camera 1 ----------------
+latest_jpeg_cam1 = None
+jpeg_lock_cam1 = threading.Lock()
+new_frame_event_cam1 = threading.Event()
+latest_bgr_cam1 = None
+bgr_lock_cam1 = threading.Lock()
+fps_ema_cam1 = 0.0
+last_tick_cam1 = time.monotonic()
 
-latest_bgr = None
-bgr_lock = threading.Lock()
+# ---------------- Globals for Camera 2 ----------------
+latest_jpeg_cam2 = None
+jpeg_lock_cam2 = threading.Lock()
+new_frame_event_cam2 = threading.Event()
+latest_bgr_cam2 = None
+bgr_lock_cam2 = threading.Lock()
+fps_ema_cam2 = 0.0
+last_tick_cam2 = time.monotonic()
 
+# Common settings
 show_grid = False  
 show_center_dot = True  
 grid_color = (100, 100, 100)    # BGR (not used)
-center_dot_color = (0, 0, 255)  # BGR - green center dot
-
-fps_ema = 0.0
-last_tick = time.monotonic()
+center_dot_color = (0, 0, 255)  # BGR - red center dot
 
 # Global variables to store configuration from command line
 CONFIG = {
-    'device': 0,
+    'device1': 0,
+    'device2': 1,
     'width': 800,
     'height': 600,
     'fps': 30,
@@ -45,6 +54,15 @@ CONFIG = {
     'rotate': 0,
     'show_fps': True
 }
+
+# ROS-like data simulation (replace with actual ROS subscriber)
+ros_data = {
+    'cmd_vel': {'linear': {'x': 0.0, 'y': 0.0, 'z': 0.0}, 'angular': {'x': 0.0, 'y': 0.0, 'z': 0.0}},
+    'imu': {'orientation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0}, 'angular_velocity': {'x': 0.0, 'y': 0.0, 'z': 0.0}},
+    'battery': {'voltage': 12.0, 'percentage': 85},
+    'odometry': {'position': {'x': 0.0, 'y': 0.0, 'z': 0.0}, 'velocity': {'linear': 0.0, 'angular': 0.0}}
+}
+ros_lock = threading.Lock()
 
 # ---------------- Try TurboJPEG ----------------
 try:
@@ -64,9 +82,8 @@ except Exception:
     log.info("TurboJPEG not available, falling back to cv2.imencode")
 
 # ---------------- Overlay helpers ----------------
-def draw_overlay_inplace(frame_bgr, show_fps=True):
-    """Draw overlay on frame using configuration from CONFIG global"""
-    global fps_ema
+def draw_overlay_inplace(frame_bgr, fps_ema, camera_name, show_fps=True):
+    """Draw overlay on frame"""
     h, w = frame_bgr.shape[:2]
     cx, cy = w // 2, h // 2
     
@@ -74,9 +91,9 @@ def draw_overlay_inplace(frame_bgr, show_fps=True):
         cv2.circle(frame_bgr, (cx, cy), 5, center_dot_color, -1, cv2.LINE_AA)
         cv2.circle(frame_bgr, (cx, cy), 7, (255, 255, 255), 1, cv2.LINE_AA)
     
-    # Clean FPS overlay
+    # Clean FPS overlay with camera name
     if show_fps:
-        text = f"FPS: {fps_ema:.1f}"
+        text = f"{camera_name} FPS: {fps_ema:.1f}"
         font = cv2.FONT_HERSHEY_SIMPLEX
         scale = 0.6
         thick = 2
@@ -85,22 +102,66 @@ def draw_overlay_inplace(frame_bgr, show_fps=True):
         cv2.rectangle(frame_bgr, (12, 12), (12 + size[0] + 12, 12 + size[1] + 12), (26, 26, 26), -1)
         cv2.rectangle(frame_bgr, (12, 12), (12 + size[0] + 12, 12 + size[1] + 12), (127, 255, 16), 1)
         cv2.putText(frame_bgr, text, (18, 12 + size[1] + 3), font, scale, (127, 255, 16), thick, cv2.LINE_AA)
+
+# ---------------- ROS Data Simulator ----------------
+def ros_data_simulator():
+    """Simulate ROS topic data updates"""
+    global ros_data
     
+    while True:
+        with ros_lock:
+            # Simulate cmd_vel changes
+            ros_data['cmd_vel']['linear']['x'] = np.sin(time.time() * 0.5) * 2.0
+            ros_data['cmd_vel']['angular']['z'] = np.cos(time.time() * 0.3) * 1.5
+            
+            # Simulate IMU data
+            ros_data['imu']['angular_velocity']['z'] = np.sin(time.time() * 0.2) * 0.5
+            
+            # Simulate battery discharge
+            ros_data['battery']['percentage'] = max(20, 100 - (time.time() % 100))
+            ros_data['battery']['voltage'] = 10.0 + ros_data['battery']['percentage'] * 0.04
+            
+            # Simulate odometry
+            ros_data['odometry']['position']['x'] += ros_data['cmd_vel']['linear']['x'] * 0.1
+            ros_data['odometry']['position']['y'] += ros_data['cmd_vel']['linear']['y'] * 0.1
+            ros_data['odometry']['velocity']['linear'] = abs(ros_data['cmd_vel']['linear']['x'])
+            ros_data['odometry']['velocity']['angular'] = abs(ros_data['cmd_vel']['angular']['z'])
+            
+        time.sleep(0.1)
+
 # ---------------- Capture Thread ----------------
-def capture_loop():
-    """Camera capture loop using configuration from CONFIG global"""
-    global latest_jpeg, latest_bgr, fps_ema, last_tick, CONFIG
+def capture_loop(camera_id, device_id):
+    """Camera capture loop for specific camera"""
+    if camera_id == 1:
+        global latest_jpeg_cam1, latest_bgr_cam1, fps_ema_cam1, last_tick_cam1
+        latest_jpeg = latest_jpeg_cam1
+        latest_bgr = latest_bgr_cam1
+        fps_ema = fps_ema_cam1
+        last_tick = last_tick_cam1
+        jpeg_lock = jpeg_lock_cam1
+        bgr_lock = bgr_lock_cam1
+        new_frame_event = new_frame_event_cam1
+        camera_name = "CAM1"
+    else:
+        global latest_jpeg_cam2, latest_bgr_cam2, fps_ema_cam2, last_tick_cam2
+        latest_jpeg = latest_jpeg_cam2
+        latest_bgr = latest_bgr_cam2
+        fps_ema = fps_ema_cam2
+        last_tick = last_tick_cam2
+        jpeg_lock = jpeg_lock_cam2
+        bgr_lock = bgr_lock_cam2
+        new_frame_event = new_frame_event_cam2
+        camera_name = "CAM2"
     
     # Initialize frame counting variables
     frame_count = 0
-    fps_check_interval = 30  # Check FPS every 30 frames
+    fps_check_interval = 30
     start_time = time.monotonic()
     
     # Get configuration values
-    device = CONFIG['device']
     width = CONFIG['width']
     height = CONFIG['height']
-    fps = CONFIG['fps']
+    fps_target = CONFIG['fps']
     flip = CONFIG['flip']
     rotate = CONFIG['rotate']
     show_fps = CONFIG['show_fps']
@@ -115,67 +176,84 @@ def capture_loop():
     # Try different backends
     for backend in [cv2.CAP_V4L2, cv2.CAP_GSTREAMER, cv2.CAP_ANY]:
         try:
-            cap = cv2.VideoCapture(device, backend)
+            cap = cv2.VideoCapture(device_id, backend)
             if cap.isOpened():
-                log.info(f"Camera opened with backend: {backend}")
+                log.info(f"{camera_name} opened with backend: {backend}")
                 break
         except Exception as e:
-            log.warning(f"Open camera failed for backend {backend}: {e}")
+            log.warning(f"Open {camera_name} failed for backend {backend}: {e}")
 
     if cap is None or not cap.isOpened():
-        log.error(f"Cannot open camera device {device}")
-        # Create dummy frame for testing with configured dimensions
+        log.error(f"Cannot open {camera_name} device {device_id}")
+        # Create dummy frame
         dummy_frame = np.zeros((height, width, 3), dtype=np.uint8)
-        # Dark background 
         dummy_frame.fill(26)
-        cv2.putText(dummy_frame, "NO CAMERA DETECTED", (width//4, height//2), 
+        cv2.putText(dummy_frame, f"NO {camera_name} DETECTED", (width//4, height//2), 
                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (232, 232, 232), 2)
-        cv2.putText(dummy_frame, f"Device: {device} | {width}x{height}@{fps}fps", (width//4, height//2 + 40), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (127, 255, 16), 2)
+        cv2.putText(dummy_frame, f"Device: {device_id} | {width}x{height}@{fps_target}fps", 
+                   (width//4, height//2 + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (127, 255, 16), 2)
         
         while True:
             frame_copy = dummy_frame.copy()
-            draw_overlay_inplace(frame_copy, show_fps=show_fps)
+            draw_overlay_inplace(frame_copy, 0, camera_name, show_fps=show_fps)
             
             with bgr_lock:
-                latest_bgr = frame_copy.copy()
+                if camera_id == 1:
+                    globals()['latest_bgr_cam1'] = frame_copy.copy()
+                else:
+                    globals()['latest_bgr_cam2'] = frame_copy.copy()
                 
             try:
                 jpeg_bytes = encode_jpeg(frame_copy, quality=jpeg_quality)
                 with jpeg_lock:
-                    latest_jpeg = jpeg_bytes
-                    new_frame_event.set()
-                    new_frame_event.clear()
+                    if camera_id == 1:
+                        globals()['latest_jpeg_cam1'] = jpeg_bytes
+                        new_frame_event_cam1.set()
+                        new_frame_event_cam1.clear()
+                    else:
+                        globals()['latest_jpeg_cam2'] = jpeg_bytes
+                        new_frame_event_cam2.set()
+                        new_frame_event_cam2.clear()
             except Exception as e:
-                log.error(f"JPEG encode failed: {e}")
-            time.sleep(1.0/fps)
+                log.error(f"{camera_name} JPEG encode failed: {e}")
+            time.sleep(1.0/fps_target)
         return
 
     try:
-        # Set camera properties using configured values
-        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-        cap.set(cv2.CAP_PROP_FPS, fps)
-        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        # Set camera properties
+        cap1.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+        cap1.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        cap1.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        cap1.set(cv2.CAP_PROP_FPS, fps_target)
+        cap1.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+        cap2.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+        cap2.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        cap2.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        cap2.set(cv2.CAP_PROP_FPS, fps_target)
+        cap2.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         
-        # Additional settings for better quality
+        # Additional settings
         try:
-            cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
-            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
-            cap.set(cv2.CAP_PROP_EXPOSURE, -6)  # Lower exposure for less motion blur
+            cap1.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+            cap1.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+            cap1.set(cv2.CAP_PROP_EXPOSURE, -6)
+
+            cap2.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+            cap2.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+            cap2.set(cv2.CAP_PROP_EXPOSURE, -6)
         except:
             pass
             
     except Exception as e:
-        log.warning(f"Some camera properties could not be set: {e}")
+        log.warning(f"{camera_name} some properties could not be set: {e}")
 
     actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    actual_fps = cap.get(cv2.CAP_PROP_FPS) or fps
-    log.info(f"Camera settings: {width}x{height}@{fps}fps | actual: {actual_w}x{actual_h}@{actual_fps:.1f}")
+    actual_fps = cap.get(cv2.CAP_PROP_FPS) or fps_target
+    log.info(f"{camera_name} settings: {width}x{height}@{fps_target}fps | actual: {actual_w}x{actual_h}@{actual_fps:.1f}")
 
-    target_frame_time = 1.0 / fps
+    target_frame_time = 1.0 / fps_target
     retry = 0
     max_retry = 5
 
@@ -185,33 +263,22 @@ def capture_loop():
         
         if not ret:
             retry += 1
-            log.warning(f"Camera read() failed {retry}/{max_retry}")
+            log.warning(f"{camera_name} read() failed {retry}/{max_retry}")
             if retry >= max_retry:
-                log.error("Too many read() failures, attempting to reopen camera...")
+                log.error(f"Too many {camera_name} read() failures, attempting to reopen...")
                 cap.release()
                 time.sleep(1.0)
-                cap = cv2.VideoCapture(device, cv2.CAP_V4L2)
+                cap = cv2.VideoCapture(device_id, cv2.CAP_V4L2)
                 if not cap.isOpened():
-                    log.error("Failed to reopen camera")
+                    log.error(f"Failed to reopen {camera_name}")
                     time.sleep(2)
                     continue
                 retry = 0
             time.sleep(0.05)
             continue
         
-        retry = 0  # Reset retry counter on successful read
-        frame_count += 1  # Increment frame counter
-        
-        # Performance monitoring every N frames
-        if frame_count % fps_check_interval == 0:
-            elapsed_time = time.monotonic() - start_time
-            measured_fps = frame_count / elapsed_time
-            log.debug(f"Performance check: {measured_fps:.1f} FPS over {frame_count} frames")
-            
-            # Reset counters periodically to avoid overflow
-            if frame_count >= 300:
-                frame_count = 0
-                start_time = time.monotonic()
+        retry = 0
+        frame_count += 1
         
         # Ensure frame is the correct resolution
         if frame.shape[:2] != (height, width):
@@ -227,58 +294,86 @@ def capture_loop():
         elif rotate == 270:
             frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-        draw_overlay_inplace(frame, show_fps=show_fps)
-
-        # Calculate EMA FPS more smoothly
+        # Calculate FPS
         now = time.monotonic()
-        dt = now - last_tick
-        if dt > 0:
-            inst = 1.0 / dt
-            # Use different smoothing factor based on FPS stability
-            alpha = 0.1 if abs(inst - fps_ema) < 5 else 0.2
-            fps_ema = inst if fps_ema == 0 else (alpha * inst + (1-alpha) * fps_ema)
-        last_tick = now
+        if camera_id == 1:
+            dt = now - last_tick_cam1
+            if dt > 0:
+                inst = 1.0 / dt
+                alpha = 0.1 if abs(inst - fps_ema_cam1) < 5 else 0.2
+                fps_ema_cam1 = inst if fps_ema_cam1 == 0 else (alpha * inst + (1-alpha) * fps_ema_cam1)
+            last_tick_cam1 = now
+            fps_current = fps_ema_cam1
+        else:
+            dt = now - last_tick_cam2
+            if dt > 0:
+                inst = 1.0 / dt
+                alpha = 0.1 if abs(inst - fps_ema_cam2) < 5 else 0.2
+                fps_ema_cam2 = inst if fps_ema_cam2 == 0 else (alpha * inst + (1-alpha) * fps_ema_cam2)
+            last_tick_cam2 = now
+            fps_current = fps_ema_cam2
+
+        draw_overlay_inplace(frame, fps_current, camera_name, show_fps=show_fps)
 
         # Store latest BGR frame
         with bgr_lock:
-            latest_bgr = frame.copy()
+            if camera_id == 1:
+                globals()['latest_bgr_cam1'] = frame.copy()
+            else:
+                globals()['latest_bgr_cam2'] = frame.copy()
 
-        # Encode to JPEG with error handling
+        # Encode to JPEG
         try:
             jpeg_bytes = encode_jpeg(frame, quality=jpeg_quality)
         except Exception as e:
-            log.error(f"JPEG encode failed: {e}")
+            log.error(f"{camera_name} JPEG encode failed: {e}")
             time.sleep(0.001)
             continue
 
         # Store latest JPEG
         with jpeg_lock:
-            latest_jpeg = jpeg_bytes
-            new_frame_event.set()
-            new_frame_event.clear()
+            if camera_id == 1:
+                globals()['latest_jpeg_cam1'] = jpeg_bytes
+                new_frame_event_cam1.set()
+                new_frame_event_cam1.clear()
+            else:
+                globals()['latest_jpeg_cam2'] = jpeg_bytes
+                new_frame_event_cam2.set()
+                new_frame_event_cam2.clear()
 
-        # Adaptive frame rate limiting
+        # Frame rate limiting
         elapsed = time.monotonic() - tick0
         sleep_time = target_frame_time - elapsed
         
-        # Only sleep if we have significant time left
         if sleep_time > 0.001:
             time.sleep(sleep_time)
-        elif sleep_time < -0.01:
-            # If we're running significantly behind, log it
-            log.debug(f"Frame processing taking too long: {elapsed:.3f}s (target: {target_frame_time:.3f}s)")
 
-# ---------------- MJPEG stream ----------------
-def mjpeg_generator():
-    """Generate MJPEG stream"""
+# ---------------- MJPEG stream generators ----------------
+def mjpeg_generator_cam1():
+    """Generate MJPEG stream for camera 1"""
     boundary = b'--frame\r\nContent-Type: image/jpeg\r\n\r\n'
     while True:
-        # Wait for new frame with timeout
-        if not new_frame_event.wait(timeout=2.0):
+        if not new_frame_event_cam1.wait(timeout=2.0):
             continue
             
-        with jpeg_lock:
-            buf = latest_jpeg
+        with jpeg_lock_cam1:
+            buf = latest_jpeg_cam1
+            
+        if buf is None:
+            time.sleep(0.01)
+            continue
+            
+        yield boundary + buf + b'\r\n'
+
+def mjpeg_generator_cam2():
+    """Generate MJPEG stream for camera 2"""
+    boundary = b'--frame\r\nContent-Type: image/jpeg\r\n\r\n'
+    while True:
+        if not new_frame_event_cam2.wait(timeout=2.0):
+            continue
+            
+        with jpeg_lock_cam2:
+            buf = latest_jpeg_cam2
             
         if buf is None:
             time.sleep(0.01)
@@ -289,14 +384,28 @@ def mjpeg_generator():
 # ---------------- Routes ----------------
 @app.route("/")
 def index():
-    """Main page - serve the static HTML file"""
+    """Main page"""
     return render_template("index.html")
 
-@app.route("/video")
-def video():
-    """Video stream route"""
+@app.route("/video1")
+def video1():
+    """Video stream route for camera 1"""
     return Response(
-        mjpeg_generator(), 
+        mjpeg_generator_cam1(), 
+        mimetype='multipart/x-mixed-replace; boundary=frame',
+        headers={
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+            'Access-Control-Allow-Origin': '*'
+        }
+    )
+
+@app.route("/video2")
+def video2():
+    """Video stream route for camera 2"""
+    return Response(
+        mjpeg_generator_cam2(), 
         mimetype='multipart/x-mixed-replace; boundary=frame',
         headers={
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -308,37 +417,39 @@ def video():
 
 @app.route("/api/telemetry")
 def api_telemetry():
-    """Telemetry API using dynamic configuration"""
-    global latest_bgr, fps_ema, CONFIG
+    """Enhanced telemetry API with dual camera and ROS data"""
+    global latest_bgr_cam1, latest_bgr_cam2, fps_ema_cam1, fps_ema_cam2, CONFIG, ros_data
     
-    # Use configured resolution
     h, w = CONFIG['height'], CONFIG['width']
-    cx, cy = w//2, h//2
     
-    with bgr_lock:
-        if latest_bgr is not None:
-            h, w = latest_bgr.shape[:2]
-            cx, cy = w//2, h//2
+    with ros_lock:
+        current_ros_data = ros_data.copy()
     
     return jsonify({
         "timestamp": time.time(),
-        "fps": round(fps_ema, 1),
-        "resolution": {"width": w, "height": h},
+        "cameras": {
+            "cam1": {
+                "fps": round(fps_ema_cam1, 1),
+                "resolution": {"width": w, "height": h},
+                "status": "active" if latest_bgr_cam1 is not None else "inactive",
+                "device": CONFIG['device1']
+            },
+            "cam2": {
+                "fps": round(fps_ema_cam2, 1),
+                "resolution": {"width": w, "height": h},
+                "status": "active" if latest_bgr_cam2 is not None else "inactive", 
+                "device": CONFIG['device2']
+            }
+        },
         "target_fps": CONFIG['fps'],
         "configured_resolution": {"width": CONFIG['width'], "height": CONFIG['height']},
-        "device": CONFIG['device'],
-        "overlays": {
-            "grid": False, 
-            "center_dot": True
-        },
-        "camera_status": "active" if latest_bgr is not None else "inactive",
+        "overlays": {"grid": False, "center_dot": True},
+        "ros_topics": current_ros_data,
         "system": {
             "uptime": time.time(),
             "ui_theme": "dark",
             "quality": "optimized"
-        },
-        "encoders": {"fl": 0, "fr": 0, "rl": 0, "rr": 0},
-        "imu": {"roll": 0.0, "pitch": 0.0, "yaw": 0.0},
+        }
     })
 
 # ---------------- Main ----------------
@@ -346,37 +457,52 @@ def main():
     global CONFIG
     
     parser = argparse.ArgumentParser(description="Robot Camera Stream")
-    parser.add_argument('--device', type=int, help='Camera device index')
-    parser.add_argument('--width', type=int, help='Camera width')
-    parser.add_argument('--height', type=int, help='Camera height')
+    parser.add_argument('--device1', type=int, help='Camera 1 device index')
+    parser.add_argument('--device2', type=int, help='Camera 2 device index')
+    parser.add_argument('--width1', type=int, help='Camera width1')
+    parser.add_argument('--height1', type=int, help='Camera height1')
+    parser.add_argument('--width2', type=int, help='Camera width2')
+    parser.add_argument('--height2', type=int, help='Camera height2')
     parser.add_argument('--fps', type=int, help='Camera FPS')
     parser.add_argument('--flip', type=int, default=0, help='Flip camera horizontally (0/1)')
     parser.add_argument('--rotate', type=int, default=0, choices=[0, 90, 180, 270], help='Rotate camera')
     parser.add_argument('--port', type=int, default=5000, help='Server port')
-    parser.add_argument('--quality', type=int, default=75,help='JPEG quality (1-100)')
+    parser.add_argument('--quality', type=int, default=75, help='JPEG quality (1-100)')
     parser.add_argument('--show-fps', type=int, default=1, help='Show FPS overlay (0/1)')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Server host')
-    args = parser.parse_args()
 
-    # Validate required arguments from launch file
-    if args.device is None:
-        log.error("--device is required from launch file")
+    args, unknown = parser.parse_known_args()
+
+    # Validate required arguments
+    if args.device1 is None:
+        log.error("--device1 is required")
         return
-    if args.width is None:
-        log.error("--width is required from launch file")
+    if args.device2 is None:
+        log.error("--device2 is required") 
         return
-    if args.height is None:
-        log.error("--height is required from launch file")
+    if args.width1 is None:
+        log.error("--width1 is required")
+        return
+    if args.height1 is None:
+        log.error("--height1 is required")
+    if args.width2 is None:
+        log.error("--width2 is required")
+        return
+    if args.height2 is None:
+        log.error("--height2 is required")
         return
     if args.fps is None:
-        log.error("--fps is required from launch file")
+        log.error("--fps is required")
         return
 
-    # Store all configuration in global CONFIG
+    # Store configuration
     CONFIG.update({
-        'device': args.device,
-        'width': args.width,
-        'height': args.height,
+        'device1': args.device1,
+        'device2': args.device2,
+        'width1': args.width1,
+        'height1': args.height1,
+        'width2': args.width2,
+        'height2': args.height2,
         'fps': args.fps,
         'port': args.port,
         'host': args.host,
@@ -386,42 +512,48 @@ def main():
         'show_fps': bool(args.show_fps)
     })
 
-    log.info("Starting Robot Camera Stream System")
-    log.info("=" * 50)
+    log.info("Starting Dual Robot Camera Stream System")
+    log.info("=" * 60)
     log.info(f"Server: http://{CONFIG['host']}:{CONFIG['port']}")
-    log.info(f"Camera: {CONFIG['width']}×{CONFIG['height']}@{CONFIG['fps']}fps (device {CONFIG['device']})")
-    log.info(f"Quality: {CONFIG['quality']}% | Features: Center dot overlay")
+    log.info(f"Camera 1: {CONFIG['width']}×{CONFIG['height']}@{CONFIG['fps']}fps (device {CONFIG['device1']})")
+    log.info(f"Camera 2: {CONFIG['width']}×{CONFIG['height']}@{CONFIG['fps']}fps (device {CONFIG['device2']})")
+    log.info(f"Quality: {CONFIG['quality']}% | Features: Center dot overlay, ROS data")
     log.info(f"Options: flip={CONFIG['flip']}, rotate={CONFIG['rotate']}°")
-    log.info("Configuration from launch file successfully loaded")
-    log.info("=" * 50)
+    log.info("=" * 60)
 
-    # Start camera capture thread - no parameters needed, uses global CONFIG
-    th_cap = threading.Thread(
-        target=capture_loop,
-        daemon=True
-    )
-    th_cap.start()
+    # Start ROS data simulator
+    ros_thread = threading.Thread(target=ros_data_simulator, daemon=True)
+    ros_thread.start()
 
-    # Wait for camera to initialize
-    log.info("Initializing camera system...")
-    initialization_success = False
+    # Start camera capture threads
+    cam1_thread = threading.Thread(target=capture_loop, args=(1, CONFIG['device1']), daemon=True)
+    cam1_thread.start()
     
-    for i in range(200):  # Wait up to 10 seconds
-        with jpeg_lock:
-            if latest_jpeg is not None:
-                initialization_success = True
-                break
-        time.sleep(0.05)
+    cam2_thread = threading.Thread(target=capture_loop, args=(2, CONFIG['device2']), daemon=True)
+    cam2_thread.start()
+
+    # Wait for cameras to initialize
+    log.info("Initializing dual camera system...")
+    time.sleep(2)
+
+    cam1_ready = False
+    cam2_ready = False
+    
+    for i in range(100):
+        with jpeg_lock_cam1:
+            if latest_jpeg_cam1 is not None:
+                cam1_ready = True
+        with jpeg_lock_cam2:
+            if latest_jpeg_cam2 is not None:
+                cam2_ready = True
+                
+        if cam1_ready and cam2_ready:
+            break
+        time.sleep(0.1)
         if i % 20 == 0:
-            log.info(f"Still waiting for camera... ({i//20 + 1}/10)")
+            log.info(f"Waiting for cameras... CAM1: {'✓' if cam1_ready else '✗'}, CAM2: {'✓' if cam2_ready else '✗'}")
     
-    if initialization_success:
-        log.info("Camera system ready!")
-        log.info(f"Using configuration: {CONFIG['width']}x{CONFIG['height']}@{CONFIG['fps']}fps on device {CONFIG['device']}")
-    else:
-        log.warning("Camera not detected within timeout, but starting server anyway...")
-        log.warning("Server will show dummy feed until camera becomes available")
-    
+    log.info(f"Camera system status: CAM1: {'Ready' if cam1_ready else 'Failed'}, CAM2: {'Ready' if cam2_ready else 'Failed'}")
 
     try:
         app.run(host=CONFIG['host'], port=CONFIG['port'], threaded=True, debug=False)
@@ -432,4 +564,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    parser.add_argument
