@@ -1,34 +1,40 @@
 #!/usr/bin/env python3
 import time
-import rclpy, serial
+import rclpy, serial, threading
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from std_msgs.msg import String
 
-class ServoBridge(Node):
+class Node2Bridge(Node):
     def __init__(self):
-        super().__init__('servo_bridge')
+        super().__init__('node2_bridge')
 
         # parameters
         self.declare_parameter('port', '/dev/esp32_node2')
         self.declare_parameter('baud', 115200)
+
         self.declare_parameter('topic', '/servo_cmd')
+        self.declare_parameter('topic', '/step_cmd')
+
         self.declare_parameter('open_retry_sec', 1.0)   # << retry เปิดพอร์ตทุก ๆ 1s
         self.declare_parameter('verbose', False)        # << log ตอนส่ง
 
         p = lambda k: self.get_parameter(k).get_parameter_value()
-        self.port = p('port').string_value
-        self.baud = int(p('baud').integer_value) if p('baud').type == 2 else int(p('baud').double_value)
-        topic = p('topic').string_value
-        self.retry = float(p('open_retry_sec').double_value)
-        self.verbose = bool(p('verbose').bool_value)
+        self.port   = p('port').string_value
+        self.baud   = int(p('baud').integer_value) if p('baud').type == 2 else int(p('baud').double_value)
+        self.retry  = float(p('open_retry_sec').double_value)
+        self.verbose= bool(p('verbose').bool_value)
+        servo_topic = p('servo_topic').string_value
+        step_topic  = p('step_topic').string_value
 
         self.ser = None
         self._open_serial_with_retry()
+        self._lock = threading.Lock()
 
         qos = QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
                          history=HistoryPolicy.KEEP_LAST, depth=10)
-        self.sub = self.create_subscription(String, topic, self.cb, qos)
+        self.sub_servo = self.create_subscription(String, servo_topic, self._cb_servo, qos)
+        self.sub_step  = self.create_subscription(String, step_topic,  self._cb_step,  qos)
 
         # ตั้ง timer คอยเช็ค/เปิดใหม่ ถ้าหลุดระหว่างทาง
         self.create_timer(1.0, self._tick_check_serial)
@@ -75,7 +81,7 @@ class ServoBridge(Node):
 
 def main():
     rclpy.init()
-    node = ServoBridge()
+    node = Node2Bridge()
     try:
         rclpy.spin(node)
     finally:

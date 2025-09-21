@@ -25,48 +25,48 @@ def generate_launch_description():
     show_fps      = LaunchConfiguration('show_fps')
 
     return LaunchDescription([
-        # # ================= Serial to ESP32 =================
-        # DeclareLaunchArgument('port_serial', default_value='/dev/esp32_node1'),
-        # DeclareLaunchArgument('baud', default_value='115200'),
-        # DeclareLaunchArgument('max_linear', default_value='255.0'),
-        # DeclareLaunchArgument('max_angular', default_value='255.0'),
+        # ================= Serial to ESP32 =================
+        DeclareLaunchArgument('port_serial', default_value='/dev/esp32_node1'),
+        DeclareLaunchArgument('baud', default_value='115200'),
+        DeclareLaunchArgument('max_linear', default_value='255.0'),
+        DeclareLaunchArgument('max_angular', default_value='255.0'),
 
-        # Node(
-        #     package='robot_bringup',
-        #     executable='serial_bridge',
-        #     name='serial_bridge',
-        #     output='screen',
-        #     parameters=[{
-        #         'port':        port_serial,
-        #         'baud':        baud,
-        #         'max_linear':  max_linear,
-        #         'max_angular': max_angular,
-        #     }],
-        # ),
+        Node(
+            package='robot_bringup',
+            executable='serial_bridge',
+            name='serial_bridge',
+            output='screen',
+            parameters=[{
+                'port':        port_serial,
+                'baud':        baud,
+                'max_linear':  max_linear,
+                'max_angular': max_angular,
+            }],
+        ),
 
-        # Node(
-        #     package='robot_bringup',
-        #     executable='encode_bridge',
-        #     name='encode_bridge',
-        #     output='screen',
-        #     parameters=[{
-        #         'print_hz':    2.0,
-        #         'decimals':    4,
-        #         'deadband':    1e-4,
-        #         'wheel_radius':0.0635,  # m
-        #         'units_pos':   'rad',   # 'rad' or 'deg'
-        #         'units_dist':  'm',     # 'm' or 'mm'
-        #         'enable_log':  False,   # << สวิตช์ เปิด/ปิด log
-        #     }],
-        # ),
+        Node(
+            package='robot_bringup',
+            executable='encode_bridge',
+            name='encode_bridge',
+            output='screen',
+            parameters=[{
+                'print_hz':    2.0,
+                'decimals':    4,
+                'deadband':    1e-4,
+                'wheel_radius':0.0635,  # m
+                'units_pos':   'rad',   # 'rad' or 'deg'
+                'units_dist':  'm',     # 'm' or 'mm'
+                'enable_log':  False,   # << สวิตช์ เปิด/ปิด log
+            }],
+        ),
 
-        # # ---------- Serial Bridge for Servo ----------
-        # Node(
-        #     package='robot_bringup',
-        #     executable='servo_bridge',
-        #     name='servo_bridge',
-        #     output='screen',
-        # ),
+        # ---------- Serial Bridge for Servo ----------
+        Node(
+            package='robot_bringup',
+            executable='node2_bridge',
+            name='node2_bridge',
+            output='screen',
+        ),
 
         # ================= Camera Stream (Flask) =================
         # Camera devices
@@ -82,23 +82,23 @@ def generate_launch_description():
         DeclareLaunchArgument('rotate',   default_value='0', description='Rotate (0/90/180/270)'),
         DeclareLaunchArgument('show_fps', default_value='0', description='Show FPS overlay (0/1)'),
 
-        Node(
-            package='robot_bringup',
-            executable='camera_stream',
-            name='camera_stream',
-            output='screen',
-            arguments=[
-                '--device1',  video_device1,
-                '--device2',  video_device2,
-                '--width1',    width1,
-                '--height1',   height1,
-                '--width2',    width2,
-                '--height2',   height2,
-                '--fps',      fps,
-                '--quality',  quality,
-                '--flip',     flip,
-                '--rotate',   rotate,
-                '--show-fps', show_fps,
-            ],
-        ),
+        # Node(
+        #     package='robot_bringup',
+        #     executable='camera_stream',
+        #     name='camera_stream',
+        #     output='screen',
+        #     arguments=[
+        #         '--device1',  video_device1,
+        #         '--device2',  video_device2,
+        #         '--width1',    width1,
+        #         '--height1',   height1,
+        #         '--width2',    width2,
+        #         '--height2',   height2,
+        #         '--fps',      fps,
+        #         '--quality',  quality,
+        #         '--flip',     flip,
+        #         '--rotate',   rotate,
+        #         '--show-fps', show_fps,
+        #     ],
+        # ),
     ])
