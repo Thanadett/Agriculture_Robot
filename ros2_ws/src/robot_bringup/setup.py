@@ -40,6 +40,7 @@ setup(
             'serial_bridge = robot_bringup.serial_bridge:main',
             'camera_stream = robot_bringup.camera_stream:main',
             'servo_joy = robot_bringup.servo_joy:main',
+            'step_joy = robot_bringup.step_joy:main',
             'node2_bridge = robot_bringup.node2_bridge:main',
             'base_node_py = robot_bringup.base_node:main'
             # 'encode_bridge = robot_bringup.encode_bridge:main',
