@@ -1,0 +1,7 @@
+base_controller:
+  ros__parameters:
+    wheel_radius_m: 0.0635
+    track_width_m: 0.30
+    ticks_per_rev: 11880
+    frame_odom: odom
+    frame_base: base_link

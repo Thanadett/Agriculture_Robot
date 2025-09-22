@@ -1,17 +1,18 @@
 #ifdef Node2
 #include <Arduino.h>
 #include "servo.h"
-
-
+#include "stepper.h"
+#include "serial_read2.h"
+#include "config.h"
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  BTN_handlers handlers;
-  handlers.onA = onBtnA;
-  handlers.onB = onBtnB;
-  handlers.onX = onBtnX;
+  BTN_handlers servo_h;
+  servo_h.onA = onBtnA;
+  servo_h.onB = onBtnB;
+  servo_h.onX = onBtnX;
   //callbacks for button A/B/X
-  button_set_handlers(handlers); 
+  button_set_handlers(servo_h); 
   
 
   TD8120MG.begin();// Attach the servo on pin , set Hz and min/max pulse width
@@ -31,7 +32,7 @@ void setup() {
   else
     Serial.printf("MG996R_360 attach FAILED (pin=%d)\n", MG996R_360.pin());
   if (ch_1 >= 0)
-    Serial.printf("TD8120MG attached on channel %d (pin=%d)\n", ch_2, TD8120MG.pin());
+    Serial.printf("TD8120MG attached on channel %d (pin=%d)\n", ch_1, TD8120MG.pin());
   else
     Serial.printf("TD8120MG attach FAILED (pin=%d)\n", TD8120MG.pin());
   // ======================== end debug info ========================
@@ -41,6 +42,12 @@ void setup() {
   TD8120MG.goCenterOrStop();
   MG996R_360.goCenterOrStop();
   MG996R.setAngleDeg(0); // start at 0 degree
+  Nema17.begin();
+
+  // -----Serial_Router Setup -----
+  sr2::init();
+  sr2::register_btn();             //servo
+  sr2::register_stp(&Nema17);     //stepper
 }
 
 
@@ -61,7 +68,11 @@ void loop() {
   // MG996R.setPulseUs(1500); // center for 180°
   // TD8120MG.setPulseUs(1500); // stop for 360°
   // delay(800);
-  button_serial_poll();
+
+  // button_serial_poll();
+  
+  sr2::poll(); //serial read2
+  stepper_tick(Nema17);
   delay(10);
 }
 #endif

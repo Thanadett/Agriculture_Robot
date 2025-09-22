@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include <config.h>
 #include <ESP32Servo.h>
 #include <math.h>
 
@@ -9,12 +10,6 @@
 // #define PIN_SERVO_TD8120MG 4
 // #define PIN_SERVO_360 0 //MG996R 360 continuous rotation servo
 // #define PIN_SERVO_180 2 //MG996R 180 standard servo
-
-// PWM pins of ESP32 
-//use PWM 50Hz
-constexpr int PIN__TD8120MG = 16;
-constexpr int PIN_MG996R_360 = 15; //MG996R 360 continuous rotation servo
-constexpr int PIN_MG996R = 2; //MG996R 180 standard servo
 
 const int min_p_width = 500; // the shortest pulse sent to a servo
 const int max_p_width = 2500; // the longest pulse sent to a servo
@@ -103,7 +98,7 @@ static inline bool _parseTokenAfterEquals(const String &s, const char *key, Stri
 void button_set_handlers(const BTN_handlers& h);
 
 // manage 1 received line; turns true when done (prefix "BTN")
-inline bool button_handle_line(const String& line);
+bool button_handle_line(const String& line);
 
 // poll from Serial 
 void button_serial_poll();

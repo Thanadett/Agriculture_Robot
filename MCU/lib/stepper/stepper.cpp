@@ -1,120 +1,129 @@
-// src/StepperDriver.cpp
+#include <Arduino.h>
 #include "stepper.h"
 
-/* ===== Constructor ===== */
-Stepper::Stepper(int pinPUL, int pinDIR, int pinENA, bool activeLow)
-: pinPUL_(pinPUL), pinDIR_(pinDIR), pinENA_(pinENA), activeLow_(activeLow), currentDirCW_(true) {}
+UnifiedStepper::UnifiedStepper(int stepPin, int dirPin, int stepDelayUs)
+: p_{stepPin, dirPin, stepDelayUs} {}
 
-/* ===== Init ===== */
-void Stepper::begin() {
-  pinMode(pinPUL_, OUTPUT);
-  pinMode(pinDIR_, OUTPUT);
-  pinMode(pinENA_, OUTPUT);
 
-  // Default idle levels:
-  // For active LOW inputs, idle HIGH on PUL keeps pulses "off".
-  // For active HIGH inputs, idle LOW on PUL keeps pulses "off".
-  digitalWrite(pinPUL_, activeLow_ ? HIGH : LOW);
+UnifiedStepper Nema17(PIN_STEP, PIN_DIR, STEP_DELAY_US);
 
-  // Default direction
-  dirLevel_(true);
 
-  // Keep driver disabled on boot for safety
-  enaInactive_();
+bool UnifiedStepper::begin() {
+  pinMode(p_.step_pin, OUTPUT);
+  pinMode(p_.dir_pin, OUTPUT);
+  digitalWrite(p_.step_pin, LOW);
+  digitalWrite(p_.dir_pin, LOW);
+  return true;
 }
 
-/* ===== Enable/Disable ===== */
-void Stepper::enable() {
-  enaActive_();
+void UnifiedStepper::stepCW(unsigned steps) {
+  digitalWrite(p_.dir_pin, HIGH);
+  for (unsigned i = 0; i < steps; i++) {
+    digitalWrite(p_.step_pin, HIGH);
+    delayMicroseconds(p_.step_delay_us);
+    digitalWrite(p_.step_pin, LOW);
+    delayMicroseconds(p_.step_delay_us);
+  }
 }
 
-void Stepper::disable() {
-  enaInactive_();
+void UnifiedStepper::stepCCW(unsigned steps) {
+  digitalWrite(p_.dir_pin, LOW);
+  for (unsigned i = 0; i < steps; i++) {
+    digitalWrite(p_.step_pin, HIGH);
+    delayMicroseconds(p_.step_delay_us);
+    digitalWrite(p_.step_pin, LOW);
+    delayMicroseconds(p_.step_delay_us);
+  }
 }
 
-/* ===== Direction ===== */
-void Stepper::setDirection(bool cw) {
-  // Optional global invert (from Config.h)
-  bool dir = INVERT_DIRECTION ? !cw : cw;
-  currentDirCW_ = dir;
-  dirLevel_(dir);
+void UnifiedStepper::rotateContinuous(bool cw) {
+  continuous_ = true;
+  dirCW_ = cw;
+  unsigned now = micros();
+  if (now - lastMicros_ >= (unsigned)p_.step_delay_us*2) {
+    lastMicros_ = now;
+    digitalWrite(p_.dir_pin, cw ? HIGH : LOW);
+    digitalWrite(p_.step_pin, !digitalRead(p_.step_pin));
+  }
 }
 
-/* ===== One Step Pulse (blocking) ===== */
-void Stepper::stepOne() {
-  // Generate one pulse with required width; polarity depends on wiring.
-  if (activeLow_) {
-    // Active LOW: pulse LOW then back HIGH
-    digitalWrite(pinPUL_, LOW);
-    delayMicroseconds(STEP_PULSE_US);
-    digitalWrite(pinPUL_, HIGH);
+void UnifiedStepper::stop() {
+  continuous_ = false;
+  digitalWrite(p_.step_pin, LOW);
+}
+
+// ----------------- ปุ่ม -----------------
+static STP_handlers_step g_handlers_step;
+static String g_rx_line_step;
+
+void stepper_set_handlers(const STP_handlers_step& h) { g_handlers_step = h; }
+
+static inline bool _parseTokenAfterEquals(const String &s,const char *key,String &out){
+  int idx=s.indexOf(key); if(idx<0) return false;
+  idx+=strlen(key);
+  int end=idx; while(end<(int)s.length() && !isWhitespace(s[end])) end++;
+  out=s.substring(idx,end); out.trim();
+  return out.length()>0;
+}
+
+bool stepper_handle_line(const String& raw, UnifiedStepper& stepper) {
+  String line = raw; line.trim();
+  if (!line.startsWith("STP")) return false;
+  String tokUp, tokDown;
+  bool hasUp   = _parseTokenAfterEquals(line,"UP=",tokUp);
+  bool hasDown = _parseTokenAfterEquals(line,"DOWN=",tokDown);
+
+  auto toDown = [](const String& t)->bool {
+    return t.equalsIgnoreCase("DOWN") || t=="1";
+  };
+
+  if (hasUp   && g_handlers_step.onArrowUp)
+    g_handlers_step.onArrowUp(toDown(tokUp), stepper);
+  if (hasDown && g_handlers_step.onArrowDown)
+    g_handlers_step.onArrowDown(toDown(tokDown), stepper);
+  return true;
+}
+
+
+void stepper_tick(UnifiedStepper& stepper) {
+  if (stepper.isContinuous()) {
+    stepper.rotateContinuous(stepper.directionCW());
+  }
+}
+
+// void stepper_serial_poll(UnifiedStepper& stepper) {
+//   while (Serial.available() > 0) {
+//     char c = (char)Serial.read();
+//     if (c=='\r' || c=='\n') {
+//       if (g_rx_line_step.length() > 0) {
+//         stepper_handle_line(g_rx_line_step, stepper);
+//         g_rx_line_step="";
+//       }
+//     } else if (g_rx_line_step.length() < 200) g_rx_line_step += c;
+//   }
+
+//   // หากกำลังหมุนต่อเนื่อง ให้เรียก step ต่อ
+//   if (stepper.isContinuous())
+//     stepper.rotateContinuous(stepper.directionCW());
+// }
+
+// callbacks
+void onStpUp(bool down, UnifiedStepper& stepper) {
+  if (down) {
+    Serial.println("Stepper CCW start");
+    stepper.rotateContinuous(false); // ทวนเข็ม
   } else {
-    // Active HIGH: pulse HIGH then back LOW
-    digitalWrite(pinPUL_, HIGH);
-    delayMicroseconds(STEP_PULSE_US);
-    digitalWrite(pinPUL_, LOW);
+    Serial.println("Stepper stop");
+    stepper.stop();
   }
 }
 
-/* ===== Move N steps (blocking) ===== */
-void Stepper::moveSteps(long steps, unsigned long interval_us) {
-  if (steps == 0) return;
-
-  bool forward = (steps > 0);
-  setDirection(forward);
-
-  long count = labs(steps);
-  // Ensure interval is not too small vs pulse width
-  unsigned long minInterval = (STEP_PULSE_US * 2);
-  if (interval_us < minInterval) interval_us = minInterval;
-
-  for (long i = 0; i < count; ++i) {
-    stepOne();
-    // Wait remaining interval (already spent STEP_PULSE_US inside stepOne)
-    delayMicroseconds(interval_us - STEP_PULSE_US);
+void onStpDown(bool down, UnifiedStepper& stepper) {
+  if (down) {
+    Serial.println("Stepper CW start");
+    stepper.rotateContinuous(true); // ตามเข็ม
+  } else {
+    Serial.println("Stepper stop");
+    stepper.stop();
   }
-}
-
-/* ===== Move by revolutions (blocking) ===== */
-void Stepper::moveRevolutions(float rev, unsigned long interval_us) {
-  long usteps = revToMicrosteps(rev);
-  moveSteps(usteps, interval_us);
-}
-
-/* ===== Move by degrees (blocking) ===== */
-void Stepper::moveDegrees(float deg, unsigned long interval_us) {
-  long usteps = degToMicrosteps(deg);
-  moveSteps(usteps, interval_us);
-}
-
-/* ===== Utilities ===== */
-long Stepper::revToMicrosteps(float rev) {
-  const long stepsPerRev = MOTOR_STEPS_PER_REV * MICROSTEP;
-  return (long) llround(rev * (double)stepsPerRev);
-}
-
-long Stepper::degToMicrosteps(float deg) {
-  const long stepsPerRev = MOTOR_STEPS_PER_REV * MICROSTEP;
-  return (long) llround((deg / 360.0) * (double)stepsPerRev);
-}
-
-/* ===== Private Helpers ===== */
-inline void Stepper::pulse_() {
-  stepOne();
-}
-
-inline void Stepper::enaActive_() {
-  // ENA "active" often means pulling ENA- LOW (if + is tied to +5V).
-  // For activeLow_=true, drive LOW to activate; else HIGH.
-  digitalWrite(pinENA_, activeLow_ ? LOW : HIGH);
-}
-
-inline void Stepper::enaInactive_() {
-  digitalWrite(pinENA_, activeLow_ ? HIGH : LOW);
-}
-
-inline void Stepper::dirLevel_(bool cw) {
-  // TB6600 samples DIR before pulse edges; keep a small setup time if you change DIR on the fly.
-  digitalWrite(pinDIR_, (cw ^ activeLow_) ? HIGH : LOW);
-  // Note: If motion direction looks inverted, flip INVERT_DIRECTION in Config.h
 }

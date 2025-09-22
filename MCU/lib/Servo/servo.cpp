@@ -104,7 +104,7 @@ static inline bool _parseTokenAfterEquals(const String &s, const char *key, Stri
 }
 
 // handle a line like "BTN A=DOWN B=UP X=DOWN"
-inline bool button_handle_line(const String& raw) {
+bool button_handle_line(const String& raw) {
   String line = raw;
   line.trim();
   if (line.isEmpty()) return false;
