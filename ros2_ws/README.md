@@ -1,18 +1,10 @@
-# 1) สตาร์ททั้งหมด (agent serial + EKF + monitor)
+## ROS 2 Topics (Agriculture_Robot)
 
-ros2 launch robot_bringup bringup.launch.py serial_port:=/dev/ttyUSB0
-
-# (หรือ) 2) สตาร์ท agent อย่างเดียว (UDP)
-
-ros2 launch robot_bringup micro_ros_agent.launch.py transport:=udp udp_port:=8888
-
-# จากนั้นรัน EKF แยก:
-
-ros2 run robot_localization ekf_node --ros-args --params-file \
- $(ros2 pkg prefix robot_bringup)/share/robot_bringup/config/ekf.yaml
-
-# ตรวจ topic
-
-ros2 topic hz /wheel/odom
-ros2 topic hz /imu/data
-ros2 run rviz2 rviz2 # เปิดดู /odometry/filtered และ TF
+| Topic          | Direction   | Type                         | Rate   | Description                                        |
+|----------------|-------------|------------------------------|--------|----------------------------------------------------|
+| `/cmd_vel`     | Subscribed  | `geometry_msgs/msg/Twist`    | ~50 Hz | คำสั่งขับเคลื่อน (linear.x, angular.z)ส่งจาก Pi→ ESP32 |
+| `/wheel_ticks` | Published   | `std_msgs/msg/Int32MultiArray` | ~50 Hz | ค่า encoder ticks ของล้อ [lf, lr, rf, rr]         |
+| `/yaw_deg`     | Published   | `std_msgs/msg/Float32`       | ~100 Hz| มุม yaw จาก IMU (องศา)                           |
+| `/imu/data`    | Published   | `sensor_msgs/msg/Imu`        | ~100 Hz| ข้อมูล IMU (orientation, angular vel., accel) *optional* |
+| `/odom`        | Published   | `nav_msgs/msg/Odometry`      | ~10 Hz | Odometry รวม encoder + yaw                        |
+| `/tf`          | Published   | `tf2_msgs/msg/TFMessage`     | ~10 Hz | Transform: `odom → base_link` (+ `base_link → imu_link`) |

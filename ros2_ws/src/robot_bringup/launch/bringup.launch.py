@@ -9,8 +9,8 @@ from launch.conditions import IfCondition, UnlessCondition
 
 def generate_launch_description():
     transport = LaunchConfiguration('transport', default='serial')
-    dev       = LaunchConfiguration('dev', default='/dev/ttyUSB0')
-    baud      = LaunchConfiguration('baud', default='921600')
+    dev       = LaunchConfiguration('dev', default='/dev/esp32_node1')
+    baud      = LaunchConfiguration('baud', default='115200')
 
     params = PathJoinSubstitution([
         FindPackageShare('robot_bringup'),
@@ -20,8 +20,8 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument('transport', default_value='serial'),
-        DeclareLaunchArgument('dev', default_value='/dev/ttyUSB0'),
-        DeclareLaunchArgument('baud', default_value='921600'),
+        DeclareLaunchArgument('dev', default_value='/dev/esp32_node1'),
+        DeclareLaunchArgument('baud', default_value='115200'),
 
         # micro-ROS agent (ใช้ executable เดียว + subcommand)
         Node(

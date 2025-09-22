@@ -60,7 +60,7 @@ def generate_launch_description():
             }],
         ),
 
-        # ---------- Serial Bridge for Servo ----------
+        # ---------- Serial Bridge for esp32 node2 ----------
         Node(
             package='robot_bringup',
             executable='node2_bridge',
