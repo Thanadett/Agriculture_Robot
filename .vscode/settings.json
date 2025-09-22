@@ -10,6 +10,11 @@
         "string_view": "cpp",
         "format": "cpp",
         "initializer_list": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "list": "cpp",
+        "hash_map": "cpp",
+        "hash_set": "cpp",
+        "regex": "cpp",
+        "valarray": "cpp"
     }
 }

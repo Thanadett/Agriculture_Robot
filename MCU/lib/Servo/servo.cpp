@@ -124,7 +124,7 @@ inline bool button_handle_line(const String& raw) {
 
   if (hasA && g_handlers.onA) g_handlers.onA(toDown(tokA), MG996R);
   if (hasB && g_handlers.onB) g_handlers.onB(toDown(tokB), TD8120MG);
-  if (hasX && g_handlers.onX) g_handlers.onX(toDown(tokX), MG996R);
+  if (hasX && g_handlers.onX) g_handlers.onX(toDown(tokX), MG996R_360);
 
 
   // (จะพิมพ์ ACK ก็ได้)
@@ -173,13 +173,13 @@ void onBtnB(bool down,  UnifiedServo& servoType) {
   }
 }
 void onBtnX(bool down,  UnifiedServo& servoType) {
-  if (servoType.kind() == ServoKind::Positional180) {
-    if(down){
-      Serial.println("to 90");
-      servoType.setAngleDeg(90);
-    }else {
-      Serial.println("To 0");
-      servoType.setAngleDeg(0);
+  if (servoType.kind() == ServoKind::Continuous360) {
+    if (down) {
+      Serial.println("forward");
+      servoType.setSpeedPercent(+50); // forward
+    } else {
+      Serial.println("stop");
+      servoType.goCenterOrStop();     // stop
     }
   }
 }
