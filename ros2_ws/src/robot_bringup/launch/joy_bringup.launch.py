@@ -38,7 +38,20 @@ def generate_launch_description():
                 'debounce_ms': 20
             }],
         ),
-
+        # ---------- Stepper Buttons (publish /stepper_cmd) ----------
+        Node(
+            package='robot_bringup',
+            executable='step_joy',
+            name='step_joy',        
+            output='screen',
+            parameters=[{
+                'joy_topic': LaunchConfiguration('joy_topic'),
+                'stp_cmd_topic': '/stepper_cmd',
+                'axis_index': 7,      # Xbox D-pad vertical = 7
+                'threshold': 0.5,     # deadzone threshold
+                'debounce_ms': 20
+            }],
+        ),
         # Teleop node
         Node(
             package='robot_bringup',
