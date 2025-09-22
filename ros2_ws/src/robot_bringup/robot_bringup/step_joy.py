@@ -31,14 +31,13 @@ class JoystickStepperButton(Node):
         self.declare_parameter('threshold', 0.5)    # deadzone threshold
         self.declare_parameter('debounce_ms', 20)   # small debounce
 
-        p = lambda k: self.get_parameter(k).get_parameter_value()
-        self.joy_topic = p('joy_topic').string_value
-        self.stp_topic = p('stp_cmd_topic').string_value
-        self.axis_index = int(p('axis_index').integer_value)
-        self.threshold = float(
-            p('threshold').double_value if p('threshold').type_ == 3 else p('threshold').integer_value
-        )
-        self.debounce_ms = int(p('debounce_ms').integer_value)
+        p = lambda k: self.get_parameter(k).value
+        self.joy_topic   = str(p('joy_topic'))
+        self.stp_topic   = str(p('stp_cmd_topic'))
+        self.axis_index  = int(p('axis_index'))
+        self.threshold   = float(p('threshold'))
+        self.debounce_ms = int(p('debounce_ms'))
+
 
         # ---------- Pub/Sub ----------
         qos_cmd = QoSProfile(
