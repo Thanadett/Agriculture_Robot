@@ -123,10 +123,11 @@ bool button_handle_line(const String& raw) {
     return t.equalsIgnoreCase("DOWN") || t == "1";
   };
 
-  if (hasA && g_handlers.onA) g_handlers.onA(toDown(tokA), MG996R_360); //360
+  //TD8120MG => testing | change to MG996R_360 for final
+  if (hasA && g_handlers.onA) g_handlers.onA(toDown(tokA), MG996R_360); //360 | feed
   if (hasB && g_handlers.onB) g_handlers.onB(toDown(tokB), TD8120MG); //360
   if (hasX && g_handlers.onX) g_handlers.onX(toDown(tokX), MG996R); //180
-  if (haxY && g_handlers.onY) g_handlers.onY(toDown(tokY), MG996R_360); //360
+  if (haxY && g_handlers.onY) g_handlers.onY(toDown(tokY), MG996R_360); //360 | feed
 
   // (จะพิมพ์ ACK ก็ได้)
   // Serial.printf("ACK %s\n", line.c_str());
