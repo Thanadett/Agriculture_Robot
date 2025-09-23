@@ -35,6 +35,7 @@ def generate_launch_description():
                 'btn_a': 0,
                 'btn_b': 1,
                 'btn_x': 2,
+                'btn_y': 3,
                 'debounce_ms': 20
             }],
         ),
