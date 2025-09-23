@@ -113,19 +113,20 @@ bool button_handle_line(const String& raw) {
   Serial.printf("[ESP32] RX: %s\n", line.c_str());
 
   // รองรับ A=DOWN/UP หรือ A=1/0
-  String tokA, tokB, tokX;
+  String tokA, tokB, tokX, tokY;
   bool hasA = _parseTokenAfterEquals(line, "A=", tokA);
   bool hasB = _parseTokenAfterEquals(line, "B=", tokB);
   bool hasX = _parseTokenAfterEquals(line, "X=", tokX);
+  bool haxY = _parseTokenAfterEquals(line, "Y=", tokY);
 
   auto toDown = [](const String& t)->bool {
     return t.equalsIgnoreCase("DOWN") || t == "1";
   };
 
-  if (hasA && g_handlers.onA) g_handlers.onA(toDown(tokA), MG996R);
-  if (hasB && g_handlers.onB) g_handlers.onB(toDown(tokB), TD8120MG);
-  if (hasX && g_handlers.onX) g_handlers.onX(toDown(tokX), MG996R_360);
-
+  if (hasA && g_handlers.onA) g_handlers.onA(toDown(tokA), MG996R_360); //360
+  if (hasB && g_handlers.onB) g_handlers.onB(toDown(tokB), TD8120MG); //360
+  if (hasX && g_handlers.onX) g_handlers.onX(toDown(tokX), MG996R); //180
+  if (haxY && g_handlers.onY) g_handlers.onY(toDown(tokY), MG996R_360); //360
 
   // (จะพิมพ์ ACK ก็ได้)
   // Serial.printf("ACK %s\n", line.c_str());
@@ -150,7 +151,7 @@ void button_serial_poll() {
 
 
 // ---------- button control ---------------
-void onBtnA(bool down, UnifiedServo& servoType) {
+void onBtnX(bool down, UnifiedServo& servoType) {
   if (servoType.kind() == ServoKind::Positional180) {
     if(down){
       Serial.println("To 180");
@@ -172,11 +173,13 @@ void onBtnB(bool down,  UnifiedServo& servoType) {
     }
   }
 }
-void onBtnX(bool down,  UnifiedServo& servoType) {
+void onBtnY(bool down,  UnifiedServo& servoType) {
   if (servoType.kind() == ServoKind::Continuous360) {
     if (down) {
       Serial.println("forward");
       servoType.setSpeedPercent(+50); // forward
+      delay(1500);
+      Serial.println("Deployed 1 sapling");
     } else {
       Serial.println("stop");
       servoType.goCenterOrStop();     // stop
@@ -184,4 +187,17 @@ void onBtnX(bool down,  UnifiedServo& servoType) {
   }
 }
 
+void onBtnA(bool down,  UnifiedServo& servoType) {
+  if (servoType.kind() == ServoKind::Continuous360) {
+    if (down) {
+      Serial.println("reverse");
+      servoType.setSpeedPercent(-50); // reverse
+      delay(1500);
+      Serial.println("reverse 1 sapling");
+    } else {
+      Serial.println("stop");
+      servoType.goCenterOrStop();     // stop
+    }
+  }
+}
 
