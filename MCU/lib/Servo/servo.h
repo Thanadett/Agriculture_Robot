@@ -107,3 +107,4 @@ void button_serial_poll();
 void onBtnA(bool down, UnifiedServo& servo);
 void onBtnB(bool down, UnifiedServo& servo);
 void onBtnX(bool down, UnifiedServo& servo);
+void onBtnY(bool down, UnifiedServo& servo); 

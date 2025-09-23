@@ -65,13 +65,22 @@ static inline bool _parseTokenAfterEquals(const String &s,const char *key,String
   out=s.substring(idx,end); out.trim();
   return out.length()>0;
 }
+// helper: case-insensitive startsWith
+static inline bool _startsWith_ST(const String &s, const char *p) {
+  size_t n = strlen(p);
+  return s.length() >= (int)n && s.substring(0, n).equalsIgnoreCase(p);
+}
 
 bool stepper_handle_line(const String& raw, UnifiedStepper& stepper) {
   String line = raw; line.trim();
-  if (!line.startsWith("STP")) return false;
+  line.trim();
+  if (line.isEmpty()) return false;
+  if (!_startsWith_ST(line, "STP")) return false;
+
+  Serial.printf("[ESP32] RX: %s\n", line.c_str());
   String tokUp, tokDown;
-  bool hasUp   = _parseTokenAfterEquals(line,"UP=",tokUp);
-  bool hasDown = _parseTokenAfterEquals(line,"DOWN=",tokDown);
+  bool hasUp   = _parseTokenAfterEquals(line,"C_Up=",tokUp);
+  bool hasDown = _parseTokenAfterEquals(line,"C_Dn=",tokDown);
 
   auto toDown = [](const String& t)->bool {
     return t.equalsIgnoreCase("DOWN") || t=="1";

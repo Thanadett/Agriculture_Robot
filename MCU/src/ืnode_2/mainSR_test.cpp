@@ -7,13 +7,22 @@
 void setup() {
   Serial.begin(115200);
   delay(1000);
+    // -----Serial_Router Setup -----
+  sr2::init();
+  sr2::register_btn();             //servo
+  sr2::register_stp(&Nema17);     //stepper
+
   BTN_handlers servo_h;
   servo_h.onA = onBtnA;
   servo_h.onB = onBtnB;
   servo_h.onX = onBtnX;
   //callbacks for button A/B/X
   button_set_handlers(servo_h); 
-  
+
+  STP_handlers_step stp_h;
+  stp_h.onArrowUp   = onStpUp;     // D-pad ขึ้น
+  stp_h.onArrowDown = onStpDown;   // D-pad ลง
+  stepper_set_handlers(stp_h);
 
   TD8120MG.begin();// Attach the servo on pin , set Hz and min/max pulse width
   MG996R_360.begin();
@@ -43,11 +52,6 @@ void setup() {
   MG996R_360.goCenterOrStop();
   MG996R.setAngleDeg(0); // start at 0 degree
   Nema17.begin();
-
-  // -----Serial_Router Setup -----
-  sr2::init();
-  sr2::register_btn();             //servo
-  sr2::register_stp(&Nema17);     //stepper
 }
 
 
@@ -70,7 +74,6 @@ void loop() {
   // delay(800);
 
   // button_serial_poll();
-  
   sr2::poll(); //serial read2
   stepper_tick(Nema17);
   delay(10);

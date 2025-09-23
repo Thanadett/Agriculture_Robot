@@ -52,6 +52,8 @@ struct STP_handlers_step {
 // ตั้ง handler
 void stepper_set_handlers(const STP_handlers_step& h);
 
+// helper: case-insensitive startsWith
+static inline bool _startsWith_ST(const String &s, const char *p);
 // ประมวลผลสตริง "STP UP=DOWN DOWN=UP" (คล้าย servo)
 bool stepper_handle_line(const String& line, UnifiedStepper& stepper);
 
