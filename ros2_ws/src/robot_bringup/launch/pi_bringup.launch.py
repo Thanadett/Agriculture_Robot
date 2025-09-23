@@ -31,18 +31,18 @@ def generate_launch_description():
         DeclareLaunchArgument('max_linear', default_value='255.0'),
         DeclareLaunchArgument('max_angular', default_value='255.0'),
 
-        Node(
-            package='robot_bringup',
-            executable='serial_bridge',
-            name='serial_bridge',
-            output='screen',
-            parameters=[{
-                'port':        port_serial,
-                'baud':        baud,
-                'max_linear':  max_linear,
-                'max_angular': max_angular,
-            }],
-        ),
+        # Node(
+        #     package='robot_bringup',
+        #     executable='serial_bridge',
+        #     name='serial_bridge',
+        #     output='screen',
+        #     parameters=[{
+        #         'port':        port_serial,
+        #         'baud':        baud,
+        #         'max_linear':  max_linear,
+        #         'max_angular': max_angular,
+        #     }],
+        # ),
 
         Node(
             package='robot_bringup',
@@ -66,6 +66,9 @@ def generate_launch_description():
             executable='node2_bridge',
             name='node2_bridge',
             output='screen',
+            parameters=[{
+                'verbose': False,
+            }],
         ),
 
         # ================= Camera Stream (Flask) =================

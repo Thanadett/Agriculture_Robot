@@ -79,12 +79,12 @@ class JoystickStepperButton(Node):
         down = 1 if val >= self.threshold else 0
 
         if up != self.prev_up:
-            self._emit(f'STP UP={"DOWN" if up else "UP"}')
+            self._emit(f'STP C_Up={"DOWN" if up else "UP"}')
             self.prev_up = up
             self.last_change_ms = now
 
         if down != self.prev_down:
-            self._emit(f'STP DOWN={"DOWN" if down else "UP"}')
+            self._emit(f'STP C_Dn={"DOWN" if down else "UP"}')
             self.prev_down = down
             self.last_change_ms = now
 
