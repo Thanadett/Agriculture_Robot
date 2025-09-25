@@ -1,22 +1,30 @@
 #include <Arduino.h>
 #include "stepper.h"
 
-UnifiedStepper::UnifiedStepper(int stepPin, int dirPin, int stepDelayUs)
-: p_{stepPin, dirPin, stepDelayUs} {}
+UnifiedStepper::UnifiedStepper(int stepPin, int dirPin, int enaPin, int stepDelayUs)
+: p_{stepPin, dirPin, enaPin, stepDelayUs} {}
 
 
-UnifiedStepper Nema17(PIN_STEP, PIN_DIR, STEP_DELAY_US);
+UnifiedStepper Nema17(PIN_STEP, PIN_DIR, PIN_ENABLE, STEP_DELAY_US);
 
 
 bool UnifiedStepper::begin() {
   pinMode(p_.step_pin, OUTPUT);
   pinMode(p_.dir_pin, OUTPUT);
   digitalWrite(p_.step_pin, LOW);
-  digitalWrite(p_.dir_pin, LOW);
+  digitalWrite(p_.ena_Pin, LOW);
+
+  //Enable pin (active-low)
+  pinMode(p_.ena_Pin, OUTPUT);
+  digitalWrite(p_.ena_Pin, HIGH); // HIGH = Disable
   return true;
 }
 
+
 void UnifiedStepper::stepCW(unsigned steps) {
+  // >>> ADD: Enable driver (active-low)
+  digitalWrite(p_.ena_Pin, LOW);
+
   digitalWrite(p_.dir_pin, HIGH);
   for (unsigned i = 0; i < steps; i++) {
     digitalWrite(p_.step_pin, HIGH);
@@ -24,9 +32,14 @@ void UnifiedStepper::stepCW(unsigned steps) {
     digitalWrite(p_.step_pin, LOW);
     delayMicroseconds(p_.step_delay_us);
   }
+
+  digitalWrite(p_.ena_Pin, HIGH);
 }
 
+
 void UnifiedStepper::stepCCW(unsigned steps) {
+  digitalWrite(p_.ena_Pin, LOW);
+
   digitalWrite(p_.dir_pin, LOW);
   for (unsigned i = 0; i < steps; i++) {
     digitalWrite(p_.step_pin, HIGH);
@@ -34,9 +47,14 @@ void UnifiedStepper::stepCCW(unsigned steps) {
     digitalWrite(p_.step_pin, LOW);
     delayMicroseconds(p_.step_delay_us);
   }
+
+  digitalWrite(p_.ena_Pin, HIGH);
 }
 
+
 void UnifiedStepper::rotateContinuous(bool cw) {
+  //Ensure driver is enabled while continuous running
+  digitalWrite(p_.ena_Pin, LOW); // active-low enable
   continuous_ = true;
   dirCW_ = cw;
   unsigned now = micros();
@@ -50,6 +68,8 @@ void UnifiedStepper::rotateContinuous(bool cw) {
 void UnifiedStepper::stop() {
   continuous_ = false;
   digitalWrite(p_.step_pin, LOW);
+  //Disable driver
+  digitalWrite(PIN_ENABLE, HIGH); // active-low -> HIGH = Disable
 }
 
 // ----------------- ปุ่ม -----------------

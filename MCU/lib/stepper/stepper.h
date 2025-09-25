@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
+//some dude do this and works
 //DIR+ => GPIO
 //PUL+ => GPIO
 //ENA+ => GND
@@ -8,21 +9,36 @@
 //DIR- => GND
 //PUL- => GND
 
+//Need to test | active low
+//DIR- to GPIO
+//PUL- to GPIO
+//ENA- to GPIO (optional, can be connected to VCC)
+//ENA+ to 3.3V/5V
+//DIR+ to GND 
+//PUL+ to GND
+
+// RED.........Phase A
+// BLUE........Phase A Return
+// GREEN......Phase B
+// BLACK......Phase B Return
+
 //  Driver TB6600 (STEP/DIR)
-constexpr int PIN_STEP  = 18;   //  STEP
-constexpr int PIN_DIR   = 19;   //  DIR
+constexpr int PIN_STEP  = 33;   //  STEP
+constexpr int PIN_DIR   = 25;   //  DIR
+constexpr int PIN_ENABLE= 26;    //  ENA (optional, can be connected to VCC)
 constexpr int STEP_DELAY_US = 800; // หน่วงไมโครวินาทีต่อหนึ่งสเต็ป (ความเร็ว)
 
 struct StepperProfile {
   int step_pin;
   int dir_pin;
+  int ena_Pin;
   int step_delay_us;
 };
 
 // ตัวควบคุม Stepper
 class UnifiedStepper {
 public:
-  UnifiedStepper(int stepPin, int dirPin, int stepDelayUs);
+  UnifiedStepper(int stepPin, int dirPin, int enaPin, int stepDelayUs);
   bool begin();
   void stepCW(unsigned steps);      // หมุนตามเข็ม (Clockwise)
   void stepCCW(unsigned steps);     // หมุนทวนเข็ม (Counter-Clockwise)
