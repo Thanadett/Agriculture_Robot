@@ -61,7 +61,9 @@ void loop() {
    // button_serial_poll();
   sr2::poll(); //serial read2
   // Nema17.rotateContinuous(true);  // เริ่มหมุนต่อเนื่อง
-  // stepper_tick(Nema17);  use to trig step continous in loop (use with digitalw)
+  // stepper_tick(Nema17);  //use to trig step continous in loop (use with digitalw)
+  Nema17.tick();         //call in loop to make stepper move (use with accelstepper lib)
+  delay(5);
   // ===== 180° demo: absolute angles =====
   // MG996R.setAngleDeg(0);    
   // delay(600);

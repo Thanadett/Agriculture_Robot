@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include <AccelStepper.h>
 
 //some dude do this and works
 //DIR+ => GPIO
@@ -50,21 +51,18 @@ public:
   bool begin();
   void stepCW(unsigned steps);      //(Clockwise)
   void stepCCW(unsigned steps);     //(Counter-Clockwise)
-  // void rotateContinuous(bool cw);  //(call in loop) 
-  void rotateCon_CW(); //ไม่ได้ใช้
-  void rotateCon_CCW();//ไม่ได้ใช้
+  void rotateContinuous(bool cw);  //(call in loop) 
+  // void rotateCon_CW(); //ไม่ได้ใช้
+  // void rotateCon_CCW();//ไม่ได้ใช้
 
   void stop();
 
-    // --- Continuous (LEDC) ---
-  void startContinuous(bool cw, float freq_hz); // เริ่มหมุนด้วย LEDC
-  void stop_ledc();                                  // หยุด (ปิด LEDC pulse, ปิด ENA)
   bool isContinuous() const { return continuous_; }
   bool directionCW() const { return dirCW_; }
-  
-  void ledcInit(int channel, int step_pin, int resolution_bits, int start_freq);
-  void ledcStart(int channel, int resolution_bits, float freq_hz);
-  void ledcStop(int channel, int resolution_bits, bool idle_high = true);
+
+  void setMaxSpeed(float steps_per_sec);       
+  void setAcceleration(float steps_per_sec2);  
+  void tick();   
 
 private:
   StepperProfile p_;
@@ -72,11 +70,13 @@ private:
   bool dirCW_      = true;
   unsigned lastMicros_ = 0;
 
-    // LEDC members
-  int ledc_channel_ = 0;   // กำหนดตอน begin
-  int ledc_bits_    = 10;  // 10-bit (0 - 1023) resolution bit
-  uint32_t ledc_max_duty_ = 0;
-  float current_freq_hz_ = 0.f;
+   AccelStepper stepper_{AccelStepper::DRIVER, PIN_STEP, PIN_DIR}; 
+
+  float default_speed_sps_  = 0.0f; 
+  float default_accel_sps2_ = 0.0f;  
+
+  inline void ena_enable();//helper ENA
+  inline void ena_disable();
 };
 
 extern UnifiedStepper Nema17; 
@@ -98,12 +98,14 @@ static inline bool _startsWith_ST(const String &s, const char *p);
 bool stepper_handle_line(const String& line, UnifiedStepper& stepper);
 
 // poll serial
-void stepper_serial_poll(UnifiedStepper& stepper);
+// void stepper_serial_poll(UnifiedStepper& stepper); // no used for now
 
 // call back
 void onStpUp(bool down,   UnifiedStepper& stepper);
 void onStpDown(bool down, UnifiedStepper& stepper);
 
 // เรียกทุก loop เพื่อทำให้การหมุนต่อเนื่องยังเดินสเต็ป (ถ้ากำลัง continuous)
-void stepper_tick(UnifiedStepper& stepper);
+// void stepper_tick(UnifiedStepper& stepper); // no used for now
+
+
 
