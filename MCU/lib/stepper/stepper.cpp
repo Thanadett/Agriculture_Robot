@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "stepper.h"
 
+//accel stepper
 UnifiedStepper::UnifiedStepper(int stepPin, int dirPin, int enaPin, int stepDelayUs)
 : p_{stepPin, dirPin, enaPin, stepDelayUs} {}
 
@@ -16,15 +17,132 @@ bool UnifiedStepper::begin() {
   digitalWrite(p_.step_pin, HIGH); // idle high
   digitalWrite(p_.dir_pin,  LOW);
   digitalWrite(p_.ena_Pin,  HIGH);
+  ledcInit(0, p_.step_pin, ledc_bits_, 1000); // channel 0, start 1kHz
   return true;
 }
 
 //manual step CW
+// void UnifiedStepper::stepCW(unsigned steps) {
+//   digitalWrite(p_.ena_Pin, LOW);
+//   delayMicroseconds(200);  // wait for enable to take effect
+//   digitalWrite(p_.dir_pin, HIGH);
+//   delayMicroseconds(20); // wait for direction to take effect  
+//   for (unsigned i = 0; i < steps; i++) {
+//     digitalWrite(p_.step_pin, LOW);
+//     delayMicroseconds(p_.step_delay_us);
+//     digitalWrite(p_.step_pin, HIGH);
+//     delayMicroseconds(p_.step_delay_us);
+//   }
+
+//   digitalWrite(p_.ena_Pin, HIGH);
+// }
+
+// //manual step CCW
+// void UnifiedStepper::stepCCW(unsigned steps) {
+//   digitalWrite(p_.ena_Pin, LOW);
+//   delayMicroseconds(200);
+//   digitalWrite(p_.dir_pin, LOW);
+//   delayMicroseconds(20);
+//   for (unsigned i = 0; i < steps; i++) {
+//     digitalWrite(p_.step_pin, LOW);
+//     delayMicroseconds(p_.step_delay_us);
+//     digitalWrite(p_.step_pin, HIGH);
+//     delayMicroseconds(p_.step_delay_us);
+//   }
+
+//   digitalWrite(p_.ena_Pin, HIGH);
+// }
+
+
+// void UnifiedStepper::rotateContinuous(bool cw) {
+//   //Ensure driver is enabled while continuous running
+//   digitalWrite(p_.ena_Pin, LOW); // active-low enable
+//   continuous_ = true;
+//   dirCW_ = cw;
+//   if(dirCW_ == true){
+//         digitalWrite(p_.dir_pin, HIGH);
+//       }
+//   if(dirCW_ == false){
+//       digitalWrite(p_.dir_pin, LOW);
+//     }
+
+//   unsigned now = micros();
+//   if (now - lastMicros_ >= (unsigned)p_.step_delay_us*2) {
+//     lastMicros_ = now;
+  
+//     digitalWrite(p_.step_pin, LOW);
+//     delayMicroseconds(p_.step_delay_us);
+//     digitalWrite(p_.step_pin, HIGH);
+//   }
+// }
+// void UnifiedStepper::rotateCon_CW() {
+//   //Ensure driver is enabled while continuous running
+//   digitalWrite(p_.ena_Pin, LOW); // active-low enable
+//   continuous_ = true;
+    
+//   unsigned now = micros();
+//   if (now - lastMicros_ >= (unsigned)p_.step_delay_us*2) {
+//     lastMicros_ = now;
+//     digitalWrite(p_.dir_pin, HIGH);
+//     digitalWrite(p_.step_pin, LOW);
+//     delayMicroseconds(p_.step_delay_us);
+//     digitalWrite(p_.step_pin, HIGH);
+//   }
+// }
+
+// void UnifiedStepper::rotateCon_CCW() {
+//   //Ensure driver is enabled while continuous running
+//   digitalWrite(p_.ena_Pin, LOW); // active-low enable
+//   continuous_ = true;
+    
+//   unsigned now = micros();
+//   if (now - lastMicros_ >= (unsigned)p_.step_delay_us*2) {
+//     lastMicros_ = now;
+//     digitalWrite(p_.dir_pin, LOW);
+//     digitalWrite(p_.step_pin, LOW);
+//     delayMicroseconds(p_.step_delay_us);
+//     digitalWrite(p_.step_pin, HIGH);
+//   }
+// }
+
+//=================== LEDC CTRL ==================================================
+int channel = 0;
+int resolution = 10;   // 10-bit
+int freq = 2000;   
+void ledcInit(int channel, int step_pin, int resolution_bits, int start_freq) {
+  ledcSetup(channel, start_freq, resolution_bits);
+  ledcAttachPin(step_pin, channel);
+
+  int maxDuty = (1 << resolution_bits) - 1;
+  // idle: HIGH (duty = max)
+  ledcWrite(channel, maxDuty);
+}
+
+//create pulse, hz, duty 50%
+void ledcStart(int channel, int resolution_bits, float freq_hz) {
+  if (freq_hz <= 0) freq_hz = 1000.0f;
+  ledcSetup(channel, freq_hz, resolution_bits);
+
+  int maxDuty = (1 << resolution_bits) - 1;
+  int duty50 = maxDuty / 2;
+  ledcWrite(channel, duty50);
+}
+
+// stop pulse: stay HIGH 
+void ledcStop(int channel, int resolution_bits, bool idle_high = true) {
+  int maxDuty = (1 << resolution_bits) - 1;
+  ledcWrite(channel, idle_high ? maxDuty : 0);
+}
+// ---------------- Manual step  ----------------
 void UnifiedStepper::stepCW(unsigned steps) {
+  //ENA on (active-low)
   digitalWrite(p_.ena_Pin, LOW);
-  delayMicroseconds(200);  // wait for enable to take effect
+  delayMicroseconds(200);
+
   digitalWrite(p_.dir_pin, HIGH);
-  delayMicroseconds(20); // wait for direction to take effect  
+  delayMicroseconds(10);
+
+  // create pulse N time
   for (unsigned i = 0; i < steps; i++) {
     digitalWrite(p_.step_pin, LOW);
     delayMicroseconds(p_.step_delay_us);
@@ -32,15 +150,17 @@ void UnifiedStepper::stepCW(unsigned steps) {
     delayMicroseconds(p_.step_delay_us);
   }
 
+  // ปิด ENA ถ้าไม่ต้องการถือแรง (ถ้าจะวิ่งต่อ เอา HIGH ออก)
   digitalWrite(p_.ena_Pin, HIGH);
 }
 
-//manual step CCW
 void UnifiedStepper::stepCCW(unsigned steps) {
   digitalWrite(p_.ena_Pin, LOW);
   delayMicroseconds(200);
+
   digitalWrite(p_.dir_pin, LOW);
-  delayMicroseconds(20);
+  delayMicroseconds(10);
+
   for (unsigned i = 0; i < steps; i++) {
     digitalWrite(p_.step_pin, LOW);
     delayMicroseconds(p_.step_delay_us);
@@ -51,30 +171,36 @@ void UnifiedStepper::stepCCW(unsigned steps) {
   digitalWrite(p_.ena_Pin, HIGH);
 }
 
+// ---------------- Continuous (LEDC PWM) ----------------
+void UnifiedStepper::startContinuous(bool cw, float freq_hz) {
+  digitalWrite(p_.ena_Pin, LOW);
+  delayMicroseconds(100);
+  // select ccw, cw
+  digitalWrite(p_.dir_pin, cw ? HIGH : LOW);
+  delayMicroseconds(10);
+  // start PWM at STEP (50% duty)
+  ledcStart(0, ledc_bits_, freq_hz);
 
-void UnifiedStepper::rotateContinuous(bool cw) {
-  //Ensure driver is enabled while continuous running
-  digitalWrite(p_.ena_Pin, LOW); // active-low enable
   continuous_ = true;
   dirCW_ = cw;
-  unsigned now = micros();
-  if (now - lastMicros_ >= (unsigned)p_.step_delay_us*2) {
-    lastMicros_ = now;
-   
-    digitalWrite(p_.dir_pin, cw ? HIGH : LOW);
-    //create pulse for step
-    digitalWrite(p_.step_pin, LOW);
-    delayMicroseconds(p_.step_delay_us);
-    digitalWrite(p_.step_pin, HIGH);
-  }
 }
 
-void UnifiedStepper::stop() {
+void UnifiedStepper::stop_ledc() {
   continuous_ = false;
-  digitalWrite(p_.step_pin, LOW);
-  //Disable driver
-  digitalWrite(p_.ena_Pin, HIGH); 
+  // หยุด PWM แล้วค้าง HIGH เป็น idle
+  ledcStop(0, ledc_bits_, true);
+  // ปิดไดรเวอร์ (active-low)
+  digitalWrite(p_.ena_Pin, HIGH);
 }
+//=================== LEDC CTRL (END) ==================================================
+
+
+// void UnifiedStepper::stop() {
+//   continuous_ = false;
+//   digitalWrite(p_.step_pin, LOW);
+//   //Disable driver
+//   digitalWrite(p_.ena_Pin, HIGH); 
+// }
 
 // ----------------- ปุ่ม -----------------
 static STP_handlers_step g_handlers_step;
@@ -118,11 +244,11 @@ bool stepper_handle_line(const String& raw, UnifiedStepper& stepper) {
 }
 
 
-void stepper_tick(UnifiedStepper& stepper) {
-  if (stepper.isContinuous()) {
-    stepper.rotateContinuous(stepper.directionCW());
-  }
-}
+// void stepper_tick(UnifiedStepper& stepper) {
+//   if (stepper.isContinuous()) {
+//     stepper.rotateContinuous(stepper.directionCW());
+//   }
+// }
 
 // void stepper_serial_poll(UnifiedStepper& stepper) {
 //   while (Serial.available() > 0) {
@@ -144,21 +270,25 @@ void stepper_tick(UnifiedStepper& stepper) {
 void onStpUp(bool down, UnifiedStepper& stepper) {
   if (down) {
     Serial.println("Stepper CCW start");
-    stepper.rotateContinuous(false); // ทวนเข็ม
-    delay(500);
+    // stepper.rotateContinuous(false);
+    // stepper.rotateCon_CCW();
+    stepper.startContinuous(false, 2000);
+    delay(100);
   } else {
     Serial.println("Stepper stop");
-    stepper.stop();
+    stepper.stop_ledc();
   }
 }
 
 void onStpDown(bool down, UnifiedStepper& stepper) {
   if (down) {
     Serial.println("Stepper CW start");
-    stepper.rotateContinuous(true); // ตามเข็ม
-    delay(500);
+    // stepper.rotateContinuous(true);
+    // stepper.rotateCon_CW();
+    stepper.startContinuous(true, 2000);
+    delay(100);
   } else {
     Serial.println("Stepper stop");
-    stepper.stop();
+    stepper.stop_ledc();
   }
 }

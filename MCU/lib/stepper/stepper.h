@@ -34,7 +34,7 @@
 constexpr int PIN_STEP  = 32;   //  STEP
 constexpr int PIN_DIR   = 25;   //  DIR
 constexpr int PIN_ENABLE= 26;    //  ENA (optional, can be connected to VCC)
-constexpr int STEP_DELAY_US = 800; // หน่วงไมโครวินาทีต่อหนึ่งสเต็ป (ความเร็ว)
+constexpr int STEP_DELAY_US = 800; // microseconds between steps (smaller=faster)
 
 struct StepperProfile {
   int step_pin;
@@ -48,19 +48,35 @@ class UnifiedStepper {
 public:
   UnifiedStepper(int stepPin, int dirPin, int enaPin, int stepDelayUs);
   bool begin();
-  void stepCW(unsigned steps);      // หมุนตามเข็ม (Clockwise)
-  void stepCCW(unsigned steps);     // หมุนทวนเข็ม (Counter-Clockwise)
-  void rotateContinuous(bool cw);   // หมุนต่อเนื่อง (ต้องเรียกซ้ำใน loop)
+  void stepCW(unsigned steps);      //(Clockwise)
+  void stepCCW(unsigned steps);     //(Counter-Clockwise)
+  // void rotateContinuous(bool cw);  //(call in loop) 
+  void rotateCon_CW(); //ไม่ได้ใช้
+  void rotateCon_CCW();//ไม่ได้ใช้
+
   void stop();
 
+    // --- Continuous (LEDC) ---
+  void startContinuous(bool cw, float freq_hz); // เริ่มหมุนด้วย LEDC
+  void stop_ledc();                                  // หยุด (ปิด LEDC pulse, ปิด ENA)
   bool isContinuous() const { return continuous_; }
-  bool directionCW() const  { return dirCW_; }
+  bool directionCW() const { return dirCW_; }
+  
+  void ledcInit(int channel, int step_pin, int resolution_bits, int start_freq);
+  void ledcStart(int channel, int resolution_bits, float freq_hz);
+  void ledcStop(int channel, int resolution_bits, bool idle_high = true);
 
 private:
   StepperProfile p_;
   bool continuous_ = false;
   bool dirCW_      = true;
   unsigned lastMicros_ = 0;
+
+    // LEDC members
+  int ledc_channel_ = 0;   // กำหนดตอน begin
+  int ledc_bits_    = 10;  // 10-bit (0 - 1023) resolution bit
+  uint32_t ledc_max_duty_ = 0;
+  float current_freq_hz_ = 0.f;
 };
 
 extern UnifiedStepper Nema17; 
@@ -84,7 +100,7 @@ bool stepper_handle_line(const String& line, UnifiedStepper& stepper);
 // poll serial
 void stepper_serial_poll(UnifiedStepper& stepper);
 
-// callback
+// call back
 void onStpUp(bool down,   UnifiedStepper& stepper);
 void onStpDown(bool down, UnifiedStepper& stepper);
 
