@@ -17,13 +17,21 @@
 //DIR+ to GND 
 //PUL+ to GND
 
+//the one that works now
+//DIR+ => GPIO
+//PUL+ => GPIO
+//ENA+ => GPIO
+//ENA- => GND
+//DIR- => GND
+//PUL- => GND
+
 // RED.........Phase A
 // BLUE........Phase A Return
 // GREEN......Phase B
 // BLACK......Phase B Return
 
 //  Driver TB6600 (STEP/DIR)
-constexpr int PIN_STEP  = 33;   //  STEP
+constexpr int PIN_STEP  = 32;   //  STEP
 constexpr int PIN_DIR   = 25;   //  DIR
 constexpr int PIN_ENABLE= 26;    //  ENA (optional, can be connected to VCC)
 constexpr int STEP_DELAY_US = 800; // หน่วงไมโครวินาทีต่อหนึ่งสเต็ป (ความเร็ว)

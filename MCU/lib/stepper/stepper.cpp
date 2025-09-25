@@ -11,40 +11,40 @@ UnifiedStepper Nema17(PIN_STEP, PIN_DIR, PIN_ENABLE, STEP_DELAY_US);
 bool UnifiedStepper::begin() {
   pinMode(p_.step_pin, OUTPUT);
   pinMode(p_.dir_pin, OUTPUT);
-  digitalWrite(p_.step_pin, LOW);
-  digitalWrite(p_.ena_Pin, LOW);
-
-  //Enable pin (active-low)
   pinMode(p_.ena_Pin, OUTPUT);
-  digitalWrite(p_.ena_Pin, HIGH); // HIGH = Disable
+
+  digitalWrite(p_.step_pin, HIGH); // idle high
+  digitalWrite(p_.dir_pin,  LOW);
+  digitalWrite(p_.ena_Pin,  HIGH);
   return true;
 }
 
-
+//manual step CW
 void UnifiedStepper::stepCW(unsigned steps) {
-  // >>> ADD: Enable driver (active-low)
   digitalWrite(p_.ena_Pin, LOW);
-
+  delayMicroseconds(200);  // wait for enable to take effect
   digitalWrite(p_.dir_pin, HIGH);
+  delayMicroseconds(20); // wait for direction to take effect  
   for (unsigned i = 0; i < steps; i++) {
-    digitalWrite(p_.step_pin, HIGH);
-    delayMicroseconds(p_.step_delay_us);
     digitalWrite(p_.step_pin, LOW);
+    delayMicroseconds(p_.step_delay_us);
+    digitalWrite(p_.step_pin, HIGH);
     delayMicroseconds(p_.step_delay_us);
   }
 
   digitalWrite(p_.ena_Pin, HIGH);
 }
 
-
+//manual step CCW
 void UnifiedStepper::stepCCW(unsigned steps) {
   digitalWrite(p_.ena_Pin, LOW);
-
+  delayMicroseconds(200);
   digitalWrite(p_.dir_pin, LOW);
+  delayMicroseconds(20);
   for (unsigned i = 0; i < steps; i++) {
-    digitalWrite(p_.step_pin, HIGH);
-    delayMicroseconds(p_.step_delay_us);
     digitalWrite(p_.step_pin, LOW);
+    delayMicroseconds(p_.step_delay_us);
+    digitalWrite(p_.step_pin, HIGH);
     delayMicroseconds(p_.step_delay_us);
   }
 
@@ -60,8 +60,12 @@ void UnifiedStepper::rotateContinuous(bool cw) {
   unsigned now = micros();
   if (now - lastMicros_ >= (unsigned)p_.step_delay_us*2) {
     lastMicros_ = now;
+   
     digitalWrite(p_.dir_pin, cw ? HIGH : LOW);
-    digitalWrite(p_.step_pin, !digitalRead(p_.step_pin));
+    //create pulse for step
+    digitalWrite(p_.step_pin, LOW);
+    delayMicroseconds(p_.step_delay_us);
+    digitalWrite(p_.step_pin, HIGH);
   }
 }
 
@@ -69,7 +73,7 @@ void UnifiedStepper::stop() {
   continuous_ = false;
   digitalWrite(p_.step_pin, LOW);
   //Disable driver
-  digitalWrite(PIN_ENABLE, HIGH); // active-low -> HIGH = Disable
+  digitalWrite(p_.ena_Pin, HIGH); 
 }
 
 // ----------------- ปุ่ม -----------------
@@ -141,6 +145,7 @@ void onStpUp(bool down, UnifiedStepper& stepper) {
   if (down) {
     Serial.println("Stepper CCW start");
     stepper.rotateContinuous(false); // ทวนเข็ม
+    delay(500);
   } else {
     Serial.println("Stepper stop");
     stepper.stop();
@@ -151,6 +156,7 @@ void onStpDown(bool down, UnifiedStepper& stepper) {
   if (down) {
     Serial.println("Stepper CW start");
     stepper.rotateContinuous(true); // ตามเข็ม
+    delay(500);
   } else {
     Serial.println("Stepper stop");
     stepper.stop();

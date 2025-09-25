@@ -58,6 +58,10 @@ void setup() {
 
 
 void loop() {
+   // button_serial_poll();
+  sr2::poll(); //serial read2
+  // Nema17.rotateContinuous(true);  // เริ่มหมุนต่อเนื่อง
+  stepper_tick(Nema17);           // เรียกใน loop() ให้พัลส์เดินเรื่อย ๆ
   // ===== 180° demo: absolute angles =====
   // MG996R.setAngleDeg(0);    
   // delay(600);
@@ -74,9 +78,11 @@ void loop() {
   // TD8120MG.setPulseUs(1500); // stop for 360°
   // delay(800);
 
-  // button_serial_poll();
-  sr2::poll(); //serial read2
-  stepper_tick(Nema17);
-  delay(10);
+ 
+//   Nema17.stepCCW(1600); // 1600 pulses = 1 revolution
+//   delay(3000);
+//   Nema17.stepCW(1600);
+//   delay(3000);
+//   delay(10);
 }
 #endif
