@@ -74,9 +74,9 @@ class JoystickStepperButton(Node):
         if 0 <= self.axis_index < len(msg.axes):
             val = float(msg.axes[self.axis_index])
 
-        # กด UP ถ้าแกนเป็น -1 (ดันขึ้น) / กด DOWN ถ้า +1 (ดันลง)
-        up = 1 if val <= -self.threshold else 0
-        down = 1 if val >= self.threshold else 0
+        # กด UP ถ้าแกนเป็น 1 (ดันขึ้น) / กด DOWN ถ้า -1 (ดันลง)
+        up = 1 if val >= self.threshold else 0
+        down = 1 if val <= -self.threshold else 0
 
         if up != self.prev_up:
             self._emit(f'STP C_Up={"DOWN" if up else "UP"}')
