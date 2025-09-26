@@ -4,28 +4,29 @@
 #include "stepper.h"
 #include "serial_read2.h"
 #include "config.h"
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   delay(1000);
-    // -----Serial_Router Setup -----
+  // -----Serial_Router Setup -----
   sr2::init();
-  sr2::register_btn();             //servo
-  sr2::register_stp(&Nema17);     //stepper
+  sr2::register_btn();        // servo
+  sr2::register_stp(&Nema17); // stepper
 
   BTN_handlers servo_h;
   servo_h.onA = onBtnA;
   servo_h.onB = onBtnB;
   servo_h.onX = onBtnX;
   servo_h.onY = onBtnY;
-  //callbacks for button A/B/X
-  button_set_handlers(servo_h); 
+  // callbacks for button A/B/X
+  button_set_handlers(servo_h);
 
   STP_handlers_step stp_h;
-  stp_h.onArrowUp   = onStpUp;     // D-pad ขึ้น
-  stp_h.onArrowDown = onStpDown;   // D-pad ลง
+  stp_h.onArrowUp = onStpUp;     // D-pad ขึ้น
+  stp_h.onArrowDown = onStpDown; // D-pad ลง
   stepper_set_handlers(stp_h);
 
-  TD8120MG.begin();// Attach the servo on pin , set Hz and min/max pulse width
+  TD8120MG.begin(); // Attach the servo on pin , set Hz and min/max pulse width
   MG996R_360.begin();
   MG996R.begin();
 
@@ -55,19 +56,17 @@ void setup() {
   Nema17.begin();
 }
 
-
-
-void loop() {
-   // button_serial_poll();
-  sr2::poll(); //serial read2
+void loop()
+{
+  // button_serial_poll();
+  sr2::poll(); // serial read2
   // Nema17.rotateContinuous(true);  // เริ่มหมุนต่อเนื่อง
   // stepper_tick(Nema17);  //use to trig step continous in loop (use with digitalw)
-  Nema17.tick();         //call in loop to make stepper move (use with accelstepper lib)
-  delay(5);
+  Nema17.tick(); // call in loop to make stepper move (use with accelstepper lib)
+  // delay(5);
   // ===== 180° demo: absolute angles =====
-  // MG996R.setAngleDeg(0);    
+  // MG996R.setAngleDeg(0);
   // delay(600);
-
 
   // ===== 360° demo: speed/direction =====
   // TD8120MG.setSpeedPercent(+50); delay(1500);
@@ -80,11 +79,10 @@ void loop() {
   // TD8120MG.setPulseUs(1500); // stop for 360°
   // delay(800);
 
- 
-//   Nema17.stepCCW(1600); // 1600 pulses = 1 revolution
-//   delay(3000);
-//   Nema17.stepCW(1600);
-//   delay(3000);
-//   delay(10);
+  //   Nema17.stepCCW(1600); // 1600 pulses = 1 revolution
+  //   delay(3000);
+  //   Nema17.stepCW(1600);
+  //   delay(3000);
+  //   delay(10);
 }
 #endif
