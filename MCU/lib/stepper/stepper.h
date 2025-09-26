@@ -2,110 +2,74 @@
 #include <Arduino.h>
 #include <AccelStepper.h>
 
-//some dude do this and works
-//DIR+ => GPIO
-//PUL+ => GPIO
-//ENA+ => GND
-//ENA- => GND
-//DIR- => GND
-//PUL- => GND
+// ================== Wiring Mode ==================
+// Active-Low (แนะนำ): PUL+/DIR+/ENA+ -> 3.3V, PUL-/DIR-/ENA- -> GPIO
+//   - LOW = Enable, HIGH = Disable
+//   - ตั้ง ENABLE_INVERT = true
+//
+// Active-High: PUL+/DIR+/ENA+ -> GPIO, PUL-/DIR-/ENA- -> GND
+//   - HIGH = Enable, LOW = Disable
+//   - ตั้ง ENABLE_INVERT = false
+//
+// เปลี่ยนค่าตรงนี้อย่างเดียวพอ
+#ifndef ENABLE_INVERT
+#define ENABLE_INVERT true // true = Active-Low, false = Active-High
+#endif
 
-//Need to test | active low
-//DIR- to GPIO
-//PUL- to GPIO
-//ENA- to GPIO (optional, can be connected to VCC)
-//ENA+ to 3.3V/5V
-//DIR+ to GND 
-//PUL+ to GND
+#ifndef DIRECTION_INVERT
+#define DIRECTION_INVERT false // true ถ้าทิศทางกลับด้าน
+#endif
 
-//the one that works now
-//DIR+ => GPIO
-//PUL+ => GPIO
-//ENA+ => GPIO
-//ENA- => GND
-//DIR- => GND
-//PUL- => GND
+#ifndef STEP_INVERT
+#define STEP_INVERT false // ส่วนใหญ่ไม่ต้องกลับขั้น
+#endif
 
-// RED.........Phase A
-// BLUE........Phase A Return
-// GREEN......Phase B
-// BLACK......Phase B Return
-
-//  Driver TB6600 (STEP/DIR)
-constexpr int PIN_STEP  = 32;   //  STEP
-constexpr int PIN_DIR   = 25;   //  DIR
-constexpr int PIN_ENABLE= 26;    //  ENA (optional, can be connected to VCC)
-constexpr int STEP_DELAY_US = 800; // microseconds between steps (smaller=faster)
-
-struct StepperProfile {
+struct STP_Params
+{
   int step_pin;
   int dir_pin;
-  int ena_Pin;
-  int step_delay_us;
+  int ena_pin;
+  int step_delay_us; // ค่าคุม speed/accel เบื้องต้น (ยิ่งน้อย = เร็ว)
 };
 
-// ตัวควบคุม Stepper
-class UnifiedStepper {
+class UnifiedStepper
+{
 public:
   UnifiedStepper(int stepPin, int dirPin, int enaPin, int stepDelayUs);
+
+  // ต้องเรียกใน setup()
   bool begin();
-  void stepCW(unsigned steps);      //(Clockwise)
-  void stepCCW(unsigned steps);     //(Counter-Clockwise)
-  void rotateContinuous(bool cw);  //(call in loop) 
-  // void rotateCon_CW(); //ไม่ได้ใช้
-  // void rotateCon_CCW();//ไม่ได้ใช้
 
-  void stop();
+  // โหมด "ตำแหน่ง" (ไม่บล็อก) ใช้ร่วมกับ tick()
+  void moveSteps(long steps); // + ตามเข็ม, - ทวนเข็ม
 
-  bool isContinuous() const { return continuous_; }
-  bool directionCW() const { return dirCW_; }
+  // โหมด "ความเร็วคงที่"
+  void rotateContinuous(bool cw); // true=CW, false=CCW
+  void stop();                    // หยุดทุกโหมด
 
-  void setMaxSpeed(float steps_per_sec);       
-  void setAcceleration(float steps_per_sec2);  
-  void tick();   
+  // ต้องเรียกใน loop เสมอ
+  void tick();
+
+  // ปรับค่าความเร็ว/เร่ง (steps/s, steps/s^2)
+  void setMaxSpeed(float sps);
+  void setAcceleration(float sps2);
+
+  // ยูทิลิตี้เล็กน้อย
+  long currentPosition();
+  void setCurrentPosition(long pos);
 
 private:
-  StepperProfile p_;
+  // ใช้เฉพาะภายใน (เผื่อกรณีอยากบังคับเอง)
+  inline void ena_enable_logic();  // เปิด (ตาม ENABLE_INVERT)
+  inline void ena_disable_logic(); // ปิด (ตาม ENABLE_INVERT)
+
+  STP_Params p_;
+  AccelStepper stepper_;
   bool continuous_ = false;
-  bool dirCW_      = true;
-  unsigned lastMicros_ = 0;
-
-   AccelStepper stepper_{AccelStepper::DRIVER, PIN_STEP, PIN_DIR}; 
-
-  float default_speed_sps_  = 0.0f; 
-  float default_accel_sps2_ = 0.0f;  
-
-  inline void ena_enable();//helper ENA
-  inline void ena_disable();
 };
 
-extern UnifiedStepper Nema17; 
-
-// -------------------- ปุ่มควบคุม --------------------
-using STP_handler_step = void(*)(bool down, UnifiedStepper& stepper);
-
-struct STP_handlers_step {
-  STP_handler_step onArrowUp   = nullptr; //  ทวนเข็ม
-  STP_handler_step onArrowDown = nullptr; //  ตามเข็ม
-};
-
-// ตั้ง handler
-void stepper_set_handlers(const STP_handlers_step& h);
-
-// helper: case-insensitive startsWith
-static inline bool _startsWith_ST(const String &s, const char *p);
-// ประมวลผลสตริง "STP UP=DOWN DOWN=UP" (คล้าย servo)
-bool stepper_handle_line(const String& line, UnifiedStepper& stepper);
-
-// poll serial
-// void stepper_serial_poll(UnifiedStepper& stepper); // no used for now
-
-// call back
-void onStpUp(bool down,   UnifiedStepper& stepper);
-void onStpDown(bool down, UnifiedStepper& stepper);
-
-// เรียกทุก loop เพื่อทำให้การหมุนต่อเนื่องยังเดินสเต็ป (ถ้ากำลัง continuous)
-// void stepper_tick(UnifiedStepper& stepper); // no used for now
-
-
-
+// ---------------------- Optional: Serial Command Parser ----------------------
+// โปรโตคอลเรียบง่าย: "STP C_Up=DOWN" / "STP C_Up=UP" / "STP C_Dn=DOWN" / "STP C_Dn=UP"
+// ใช้กับปุ่มขึ้น/ลง เพื่อหมุน CCW/CW ขณะกดค้าง และปล่อยแล้วหยุด
+// ใช้: stepper_handle_line(line, myStepper);
+bool stepper_handle_line(const String &raw, UnifiedStepper &stepper);

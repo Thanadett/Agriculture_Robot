@@ -25,38 +25,22 @@ def generate_launch_description():
     show_fps      = LaunchConfiguration('show_fps')
 
     return LaunchDescription([
-        # ================= Serial to ESP32 =================
-        DeclareLaunchArgument('port_serial', default_value='/dev/esp32_node1'),
-        DeclareLaunchArgument('baud', default_value='115200'),
-        DeclareLaunchArgument('max_linear', default_value='255.0'),
-        DeclareLaunchArgument('max_angular', default_value='255.0'),
 
-        # Node(
-        #     package='robot_bringup',
-        #     executable='serial_bridge',
-        #     name='serial_bridge',
-        #     output='screen',
-        #     parameters=[{
-        #         'port':        port_serial,
-        #         'baud':        baud,
-        #         'max_linear':  max_linear,
-        #         'max_angular': max_angular,
-        #     }],
-        # ),
-
+        # ================= Base Controller =================
         Node(
             package='robot_bringup',
-            executable='encode_bridge',
-            name='encode_bridge',
+            executable='base_controller',
+            name='base_controller',
             output='screen',
             parameters=[{
-                'print_hz':    2.0,
-                'decimals':    4,
-                'deadband':    1e-4,
-                'wheel_radius':0.0635,  # m
-                'units_pos':   'rad',   # 'rad' or 'deg'
-                'units_dist':  'm',     # 'm' or 'mm'
-                'enable_log':  False,   # << สวิตช์ เปิด/ปิด log
+                'ticks_topic': 'wheel_ticks',
+                'odom_topic': 'odom',
+                'wheel_radius_m': 0.0635,
+                'track_width_m': 0.365,
+                'ppr_out': 5940.0,
+                'frame_id': 'odom',
+                'child_frame_id': 'base_link',
+                'publish_tf': True
             }],
         ),
 
@@ -75,33 +59,70 @@ def generate_launch_description():
         # Camera devices
         DeclareLaunchArgument('video_device1', default_value='2'),
         DeclareLaunchArgument('video_device2', default_value='0'),
-        DeclareLaunchArgument('width1',   default_value='324'),
-        DeclareLaunchArgument('height1',  default_value='243'),
-        DeclareLaunchArgument('width2',   default_value='310'),
-        DeclareLaunchArgument('height2',  default_value='240'),
+        DeclareLaunchArgument('width1',   default_value='2592'),
+        DeclareLaunchArgument('height1',  default_value='1944'),
+        DeclareLaunchArgument('width2',   default_value='800'),
+        DeclareLaunchArgument('height2',  default_value='480'),
         DeclareLaunchArgument('fps',     default_value='30'),
         DeclareLaunchArgument('quality', default_value='75'),
         DeclareLaunchArgument('flip',     default_value='0', description='Flip horizontally (0/1)'),
         DeclareLaunchArgument('rotate',   default_value='0', description='Rotate (0/90/180/270)'),
         DeclareLaunchArgument('show_fps', default_value='0', description='Show FPS overlay (0/1)'),
 
+        Node(
+            package='robot_bringup',
+            executable='camera_stream',
+            name='camera_stream',
+            output='screen',
+            arguments=[
+                '--device1',  video_device1,
+                '--device2',  video_device2,
+                '--width1',    width1,
+                '--height1',   height1,
+                '--width2',    width2,
+                '--height2',   height2,
+                '--fps',      fps,
+                '--quality',  quality,
+                '--flip',     flip,
+                '--rotate',   rotate,
+                '--show-fps', show_fps,
+            ],
+        ),
+    ])
+
+
+
+        # # ================= Serial to ESP32 =================
+        # DeclareLaunchArgument('port_serial', default_value='/dev/esp32_node1'),
+        # DeclareLaunchArgument('baud', default_value='115200'),
+        # DeclareLaunchArgument('max_linear', default_value='255.0'),
+        # DeclareLaunchArgument('max_angular', default_value='255.0'),
+
         # Node(
         #     package='robot_bringup',
-        #     executable='camera_stream',
-        #     name='camera_stream',
+        #     executable='serial_bridge',
+        #     name='serial_bridge',
         #     output='screen',
-        #     arguments=[
-        #         '--device1',  video_device1,
-        #         '--device2',  video_device2,
-        #         '--width1',    width1,
-        #         '--height1',   height1,
-        #         '--width2',    width2,
-        #         '--height2',   height2,
-        #         '--fps',      fps,
-        #         '--quality',  quality,
-        #         '--flip',     flip,
-        #         '--rotate',   rotate,
-        #         '--show-fps', show_fps,
-        #     ],
+        #     parameters=[{
+        #         'port':        port_serial,
+        #         'baud':        baud,
+        #         'max_linear':  max_linear,
+        #         'max_angular': max_angular,
+        #     }],
         # ),
-    ])
+
+        # Node(
+        #     package='robot_bringup',
+        #     executable='encode_bridge',
+        #     name='encode_bridge',
+        #     output='screen',
+        #     parameters=[{
+        #         'print_hz':    2.0,
+        #         'decimals':    4,
+        #         'deadband':    1e-4,
+        #         'wheel_radius':0.0635,  # m
+        #         'units_pos':   'rad',   # 'rad' or 'deg'
+        #         'units_dist':  'm',     # 'm' or 'mm'
+        #         'enable_log':  False,   # << สวิตช์ เปิด/ปิด log
+        #     }],
+        # ),

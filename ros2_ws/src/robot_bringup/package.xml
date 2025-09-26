@@ -2,30 +2,33 @@
 <package format="3">
   <name>robot_bringup</name>
   <version>0.1.0</version>
-  <description>Joystick-only bringup for 4WD diff-drive with serial bridge to ESP32</description>
+  <description>Robot bringup</description>
   <maintainer email="you@example.com">You</maintainer>
-  <license>Apache-2.0</license>
+  <license>Ha HA Ha</license>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
+  <!-- ament_python เท่านั้นพอ -->
   <buildtool_depend>ament_python</buildtool_depend>
 
+  <!-- ROS launch & tools -->
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
-  <exec_depend>tf2_ros</exec_depend>
+
+  <!-- ROS deps ที่ใช้งานจริงใน base_node.py -->
   <exec_depend>rclpy</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>builtin_interfaces</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+
+  <!-- อื่น ๆ ที่คุณใช้ในระบบ -->
   <exec_depend>robot_localization</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>joy</exec_depend>
-  <exec_depend>python3-serial</exec_depend>
-  <exec_depend>python3-numpy</exec_depend>
-  <exec_depend>std_msgs</exec_depend>
-
+  <exec_depend>micro_ros_agent</exec_depend>
 
   <export>
     <build_type>ament_python</build_type>
   </export>
 </package>
-

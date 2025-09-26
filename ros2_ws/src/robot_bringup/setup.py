@@ -19,7 +19,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', glob('launch/*.py')),
         ('share/' + package_name + '/config', ['config/params.yaml',]),
-        ('lib/' + package_name, ['robot_bringup/run_camera.sh']),
+        ('share/' + package_name + '/scripts', ['robot_bringup/run_camera.sh']),
     ],
     install_requires=[
         'setuptools',
@@ -33,7 +33,7 @@ setup(
     maintainer='Thanadet Thanapremin',
     maintainer_email='n.thanadett@gmail.com',
     description='391 Project',
-    license='Apache-2.0',
+    license='Ha HA Ha',
     entry_points={
         'console_scripts': [
             'joystick_teleop = robot_bringup.joystick_teleop:main',
@@ -42,9 +42,9 @@ setup(
             'servo_joy = robot_bringup.servo_joy:main',
             'step_joy = robot_bringup.step_joy:main',
             'node2_bridge = robot_bringup.node2_bridge:main',
-            'base_node_py = robot_bringup.base_node:main'
-            # 'encode_bridge = robot_bringup.encode_bridge:main',
+            'base_controller = robot_bringup.base_controller:main',
+            'encode_bridge = robot_bringup.encode_bridge:main',
         ],
     },
-    python_requires='>=3.12',
+    python_requires='>=3.10,<3.13',
 )

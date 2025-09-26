@@ -2,383 +2,345 @@
 
 #include <Arduino.h>
 #include <micro_ros_platformio.h>
+
 #include <rcl/rcl.h>
+#include <rcl/error_handling.h>
 #include <rclc/rclc.h>
 #include <rclc/executor.h>
-#include <geometry_msgs/msg/twist.h>
+
+#include <rosidl_runtime_c/primitives_sequence_functions.h>
 #include <std_msgs/msg/int32_multi_array.h>
-#include <std_msgs/msg/float32.h>
-#include <nav_msgs/msg/odometry.h>
-#include <sensor_msgs/msg/imu.h>
+#include <std_msgs/msg/string.h>
+#include <geometry_msgs/msg/twist.h>
 
 #include "config.h"
-#include "encoder_read.h"
-#include "imu_node.h"
 #include "motor_driver.h"
-#include "velocity_controller.h"
-#include "pid_controller.h"
-#include "logger.h"
+#include "encoder_read.h"
 
-// ================== Global Variables ==================
-// ROS2 Infrastructure
-rcl_allocator_t allocator;
-rclc_support_t support;
-rcl_node_t node;
-rclc_executor_t executor;
-
-// Publishers
-rcl_publisher_t wheel_ticks_pub;
-rcl_publisher_t yaw_deg_pub;
-rcl_publisher_t odom_pub;
-rcl_publisher_t imu_pub;
-
-// Subscribers
-rcl_subscription_t cmd_vel_sub;
-
-// Messages
-std_msgs__msg__Int32MultiArray wheel_ticks_msg;
-std_msgs__msg__Float32 yaw_deg_msg;
-nav_msgs__msg__Odometry odom_msg;
-sensor_msgs__msg__Imu imu_msg;
-geometry_msgs__msg__Twist cmd_vel_msg;
-
-// Control System Components
-EncoderReader encoder_reader;
-IMU imu_node;
-MotorDriver motor_driver;
-VelocityController velocity_controller;
-PID pid_v(BODY_KP_V, BODY_KI_V, BODY_KD_V, BODY_I_V_ABS);
-PID pid_w(BODY_KP_W, BODY_KI_W, BODY_KD_W, BODY_I_W_ABS);
-Logger logger;
-
-// Control Variables
-float target_v = 0.0f; // Linear velocity (m/s)
-float target_w = 0.0f; // Angular velocity (rad/s)
-float current_v = 0.0f;
-float current_w = 0.0f;
-
-// Odometry
-float odom_x = 0.0f;
-float odom_y = 0.0f;
-float odom_theta = 0.0f;
-
-// Timing
-unsigned long last_control_time = 0;
-unsigned long last_odom_time = 0;
-unsigned long last_imu_time = 0;
-unsigned long last_wheel_ticks_time = 0;
-
-// ================== ROS2 Callback Functions ==================
-void cmd_vel_callback(const void *msgin)
-{
-  const geometry_msgs__msg__Twist *msg = (const geometry_msgs__msg__Twist *)msgin;
-
-  // Apply velocity limits
-  target_v = constrain(msg->linear.x, -BODY_V_MAX, BODY_V_MAX);
-  target_w = constrain(msg->angular.z, -BODY_W_MAX, BODY_W_MAX);
-
-  logger.info("CMD_VEL: v=%.3f w=%.3f", target_v, target_w);
-}
-
-// ================== ROS2 Setup Functions ==================
-bool setup_ros2()
-{
-  // Initialize micro-ROS
-  set_microros_serial_transports(Serial);
-
-  allocator = rcl_get_default_allocator();
-
-  // Initialize support
-  if (rclc_support_init(&support, 0, NULL, &allocator) != RCL_RET_OK)
-  {
-    logger.error("Failed to initialize support");
-    return false;
-  }
-
-  // Create node
-  if (rclc_node_init_default(&node, "esp32_node1", "", &support) != RCL_RET_OK)
-  {
-    logger.error("Failed to initialize node");
-    return false;
-  }
-
-  // Create publishers
-  if (rclc_publisher_init_default(&wheel_ticks_pub, &node,
-                                  ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32MultiArray), "/wheel_ticks") != RCL_RET_OK)
-  {
-    logger.error("Failed to create wheel_ticks publisher");
-    return false;
-  }
-
-  if (rclc_publisher_init_default(&yaw_deg_pub, &node,
-                                  ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "/yaw_deg") != RCL_RET_OK)
-  {
-    logger.error("Failed to create yaw_deg publisher");
-    return false;
-  }
-
-  if (rclc_publisher_init_default(&odom_pub, &node,
-                                  ROSIDL_GET_MSG_TYPE_SUPPORT(nav_msgs, msg, Odometry), "/odom") != RCL_RET_OK)
-  {
-    logger.error("Failed to create odom publisher");
-    return false;
-  }
-
-  if (rclc_publisher_init_default(&imu_pub, &node,
-                                  ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, Imu), "/imu") != RCL_RET_OK)
-  {
-    logger.error("Failed to create imu publisher");
-    return false;
-  }
-
-  // Create subscriber
-  if (rclc_subscription_init_default(&cmd_vel_sub, &node,
-                                     ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist), "/cmd_vel") != RCL_RET_OK)
-  {
-    logger.error("Failed to create cmd_vel subscription");
-    return false;
-  }
-
-  // Initialize executor
-  if (rclc_executor_init(&executor, &support.context, 1, &allocator) != RCL_RET_OK)
-  {
-    logger.error("Failed to initialize executor");
-    return false;
-  }
-
-  // Add subscription to executor
-  if (rclc_executor_add_subscription(&executor, &cmd_vel_sub, &cmd_vel_msg,
-                                     &cmd_vel_callback, ON_NEW_DATA) != RCL_RET_OK)
-  {
-    logger.error("Failed to add subscription to executor");
-    return false;
-  }
-
-  // Initialize messages
-  wheel_ticks_msg.data.capacity = 4;
-  wheel_ticks_msg.data.size = 4;
-  wheel_ticks_msg.data.data = (int32_t *)malloc(4 * sizeof(int32_t));
-
-  logger.info("ROS2 setup completed successfully");
-  return true;
-}
-
-// ================== Control Loop Functions ==================
-void update_odometry()
-{
-  static float prev_left_pos = 0.0f;
-  static float prev_right_pos = 0.0f;
-
-  // Get wheel positions (average of front and rear)
-  float left_pos = (encoder_reader.getPositionRad(0) + encoder_reader.getPositionRad(1)) / 2.0f;
-  float right_pos = (encoder_reader.getPositionRad(2) + encoder_reader.getPositionRad(3)) / 2.0f;
-
-  // Calculate delta positions
-  float dl = (left_pos - prev_left_pos) * WHEEL_RADIUS_M;
-  float dr = (right_pos - prev_right_pos) * WHEEL_RADIUS_M;
-
-  // Update previous positions
-  prev_left_pos = left_pos;
-  prev_right_pos = right_pos;
-
-  // Calculate velocities and update odometry
-  float dc = (dl + dr) / 2.0f;              // Center distance
-  float dtheta = (dr - dl) / TRACK_WIDTH_M; // Change in angle
-
-  current_v = dc / CONTROL_DT;
-  current_w = dtheta / CONTROL_DT;
-
-  // Update pose
-  odom_x += dc * cos(odom_theta + dtheta / 2.0f);
-  odom_y += dc * sin(odom_theta + dtheta / 2.0f);
-  odom_theta += dtheta;
-
-  // Normalize theta
-  while (odom_theta > M_PI)
-    odom_theta -= 2.0f * M_PI;
-  while (odom_theta < -M_PI)
-    odom_theta += 2.0f * M_PI;
-}
-
-void control_loop()
-{
-  unsigned long current_time = millis();
-
-  if (current_time - last_control_time >= (unsigned long)(1000.0f / CONTROL_HZ))
-  {
-    // Update encoder readings
-    encoder_reader.update();
-
-    // Update odometry
-    update_odometry();
-
-    // Calculate control errors
-    float error_v = target_v - current_v;
-    float error_w = target_w - current_w;
-
-    // PID control
-    float cmd_v = pid_v.update(error_v, CONTROL_DT);
-    float cmd_w = pid_w.update(error_w, CONTROL_DT);
-
-    // Convert to wheel velocities
-    float left_vel = cmd_v - (cmd_w * TRACK_WIDTH_M / 2.0f);
-    float right_vel = cmd_v + (cmd_w * TRACK_WIDTH_M / 2.0f);
-
-    // Update velocity controller
-    velocity_controller.setTargetVelocity(0, left_vel / WHEEL_RADIUS_M);  // FL
-    velocity_controller.setTargetVelocity(1, left_vel / WHEEL_RADIUS_M);  // RL
-    velocity_controller.setTargetVelocity(2, right_vel / WHEEL_RADIUS_M); // FR
-    velocity_controller.setTargetVelocity(3, right_vel / WHEEL_RADIUS_M); // RR
-
-    velocity_controller.update(CONTROL_DT);
-
-    last_control_time = current_time;
-  }
-}
-
-void publish_wheel_ticks()
-{
-  unsigned long current_time = millis();
-
-  if (current_time - last_wheel_ticks_time >= (unsigned long)(1000.0f / ODOM_HZ))
-  {
-    // Update tick counts
-    wheel_ticks_msg.data.data[0] = encoder_reader.getTicks(0); // FL
-    wheel_ticks_msg.data.data[1] = encoder_reader.getTicks(1); // RL
-    wheel_ticks_msg.data.data[2] = encoder_reader.getTicks(2); // FR
-    wheel_ticks_msg.data.data[3] = encoder_reader.getTicks(3); // RR
-
-    // Publish
-    rcl_ret_t ret = rcl_publish(&wheel_ticks_pub, &wheel_ticks_msg, NULL);
-    if (ret != RCL_RET_OK)
-    {
-      logger.error("Failed to publish wheel_ticks");
+// ============================ Safety Macros ============================
+#define RCCHECK(fn)                                                              \
+    {                                                                            \
+        rcl_ret_t rc_ = (fn);                                                    \
+        if (rc_ != RCL_RET_OK)                                                   \
+        {                                                                        \
+            Serial.printf("[RCL] Error %d at %s:%d\n", rc_, __FILE__, __LINE__); \
+            rclErrorLoop();                                                      \
+        }                                                                        \
+    }
+#define RCSOFTCHECK(fn)        \
+    {                          \
+        rcl_ret_t rc_ = (fn);  \
+        if (rc_ != RCL_RET_OK) \
+        {                      \
+            /* keep running */ \
+        }                      \
     }
 
-    last_wheel_ticks_time = current_time;
-  }
-}
+// Helper for periodic execution using uxr_millis()
+#define EXECUTE_EVERY_N_MS(MS, X)     \
+    do                                \
+    {                                 \
+        static uint32_t _ts = 0;      \
+        uint32_t _now = uxr_millis(); \
+        if (_now - _ts >= (MS))       \
+        {                             \
+            {                         \
+                X;                    \
+            }                         \
+            _ts = _now;               \
+        }                             \
+    } while (0)
 
-void publish_yaw_deg()
+// ============================ micro-ROS State ==========================
+enum AgentState
 {
-  unsigned long current_time = millis();
+    WAITING_AGENT = 0,
+    AGENT_AVAILABLE,
+    AGENT_CONNECTED,
+    AGENT_DISCONNECTED
+};
+static AgentState g_state = WAITING_AGENT;
 
-  if (current_time - last_imu_time >= (unsigned long)(1000.0f / IMU_HZ))
-  {
-    imu_node.update(CONTROL_DT);
-    yaw_deg_msg.data = imu_node.getYawDeg();
-    rcl_ret_t rc = rcl_publish(&imu_pub, &imu_msg, NULL);
-    if (rc != RCL_RET_OK)
-    {
-      logger.error("Failed to publish imu (%d)", (int)rc);
-    }
+// Core objects
+static rclc_support_t support;
+static rcl_allocator_t allocator;
+static rcl_node_t node;
+static rclc_executor_t executor;
+static rcl_timer_t timer_ctrl;
 
-    // Also publish full IMU data
-    imu_node.fillIMUMessage(imu_msg);
-    rcl_publish(&imu_pub, &imu_msg, NULL);
+// Pub/Sub
+static rcl_publisher_t pub_ticks;      // /wheel_ticks
+static rcl_publisher_t pub_heartbeat;  // /robot_heartbeat
+static rcl_subscription_t sub_cmd_vel; // /cmd_vel
 
-    last_imu_time = current_time;
-  }
-}
+// Messages (pre-allocated)
+static std_msgs__msg__Int32MultiArray msg_ticks;
+static std_msgs__msg__String msg_hb;
+static geometry_msgs__msg__Twist msg_cmd_vel;
 
-void publish_odometry()
-{
-  unsigned long current_time = millis();
+// Time sync with agent
+static unsigned long long time_offset_ms = 0;
+static uint32_t last_time_sync_ms = 0;
 
-  if (current_time - last_odom_time >= (unsigned long)(1000.0f / ODOM_HZ))
-  {
-    // Fill odometry message
-    odom_msg.pose.pose.position.x = odom_x;
-    odom_msg.pose.pose.position.y = odom_y;
-    odom_msg.pose.pose.position.z = 0.0;
+// ============================ Robot Modules ============================
+static QuadEncoderReader enc;
+extern uint32_t last_cmd_ms; // from motor_drive.cpp
 
-    // Convert yaw to quaternion
-    float cy = cos(odom_theta * 0.5f);
-    float sy = sin(odom_theta * 0.5f);
+// ============================ Forward Decls ============================
+static void rclErrorLoop();
+static bool createEntities();
+static bool destroyEntities();
+static void syncTime();
 
-    odom_msg.pose.pose.orientation.w = cy;
-    odom_msg.pose.pose.orientation.x = 0.0;
-    odom_msg.pose.pose.orientation.y = 0.0;
-    odom_msg.pose.pose.orientation.z = sy;
+static void on_cmd_vel(const void *msgin);
+static void on_timer(rcl_timer_t *timer, int64_t last_call_time);
 
-    odom_msg.twist.twist.linear.x = current_v;
-    odom_msg.twist.twist.angular.z = current_w;
-
-    // Set frame IDs
-    strcpy(odom_msg.header.frame_id.data, "odom");
-    strcpy(odom_msg.child_frame_id.data, "base_link");
-    odom_msg.header.stamp.sec = current_time / 1000;
-    odom_msg.header.stamp.nanosec = (current_time % 1000) * 1000000;
-
-    rcl_ret_t ret = rcl_publish(&odom_pub, &odom_msg, NULL);
-    if (ret != RCL_RET_OK)
-    {
-      logger.error("Failed to publish odometry");
-    }
-
-    last_odom_time = current_time;
-  }
-}
-
-// ================== Main Setup and Loop ==================
+// ============================ Setup ============================
 void setup()
 {
-  Serial.begin(115200);
-  delay(1000);
+    Serial.begin(115200);
+    delay(100);
 
-  logger.info("Initializing ESP32 Node1...");
+    // --------- Transport selection ---------
+    // Default: Serial transport
+    // If you want Wi-Fi: define MICROROS_WIFI and set credentials in your build flags
+#ifdef MICROROS_WIFI
+// Example:
+// IPAddress agent_ip(192,168,1,50);
+// set_microros_wifi_transports("SSID", "PASSWORD", agent_ip, 8888);
+#error "Define your Wi-Fi transports here or remove MICROROS_WIFI"
+#else
+    set_microros_serial_transports(Serial);
+#endif
 
-  // Initialize hardware components
-  if (!encoder_reader.init())
-  {
-    logger.error("Failed to initialize encoder reader");
-    return;
-  }
+    // --------- Hardware init ---------
+    motorDrive_begin(); // LEDC channels + outputs to 0
+    enc.begin(true);    // enable internal weak pullups
+    // Map encoder inversion from macros (+1/-1) to bools (true = invert)
+    enc.setInvert(ENC_INV_FL < 0, ENC_INV_FR < 0, ENC_INV_RL < 0, ENC_INV_RR < 0);
+    enc.setWheelRadius(ENC_WHEEL_RADIUS);
+    enc.setPPR(ENCODER_PPR_OUTPUT_DEFAULT); // 11 * 270 * 2 = 5940 (ตาม config.h)
 
-  if (!imu_node.init())
-  {
-    logger.error("Failed to initialize IMU");
-    return;
-  }
-
-  if (!motor_driver.init())
-  {
-    logger.error("Failed to initialize motor driver");
-    return;
-  }
-
-  if (!velocity_controller.init(&encoder_reader, &motor_driver))
-  {
-    logger.error("Failed to initialize velocity controller");
-    return;
-  }
-
-  // Setup ROS2
-  delay(2000); // Wait for micro-ROS agent
-  if (!setup_ros2())
-  {
-    logger.error("Failed to setup ROS2");
-    return;
-  }
-
-  logger.info("ESP32 Node1 initialization complete");
+    // First sync right away
+    syncTime();
+    last_time_sync_ms = millis();
 }
 
+// ============================ Main loop ============================
 void loop()
 {
-  // Spin ROS2 executor
-  rclc_executor_spin_some(&executor, RCL_MS_TO_NS(1));
+    // Periodic time sync with agent (10 s)
+    if (millis() - last_time_sync_ms > 10000U)
+    {
+        syncTime();
+        last_time_sync_ms = millis();
+    }
 
-  // Run control loop
-  control_loop();
+    // Basic micro-ROS agent state machine
+    switch (g_state)
+    {
+    case WAITING_AGENT:
+        EXECUTE_EVERY_N_MS(500, {
+            g_state = (RMW_RET_OK == rmw_uros_ping_agent(500, 4)) ? AGENT_AVAILABLE : WAITING_AGENT;
+        });
+        break;
 
-  // Publish topics
-  publish_wheel_ticks();
-  publish_yaw_deg();
-  publish_odometry();
+    case AGENT_AVAILABLE:
+        if (createEntities())
+        {
+            g_state = AGENT_CONNECTED;
+        }
+        else
+        {
+            destroyEntities();
+            g_state = WAITING_AGENT;
+        }
+        break;
 
-  // Small delay to prevent watchdog issues
-  delay(1);
+    case AGENT_CONNECTED:
+        EXECUTE_EVERY_N_MS(300, {
+            if (RMW_RET_OK != rmw_uros_ping_agent(300, 3))
+            {
+                g_state = AGENT_DISCONNECTED;
+            }
+        });
+        if (g_state == AGENT_CONNECTED)
+        {
+            // run executor non-blocking
+            rclc_executor_spin_some(&executor, RCL_MS_TO_NS(2));
+        }
+        break;
+
+    case AGENT_DISCONNECTED:
+        // Safety: stop motors
+        cmdVW_to_targets(0.f, 0.f);
+        motorDrive_update(); // write zero with slew
+        destroyEntities();
+        g_state = WAITING_AGENT;
+        break;
+    }
+
+    // Local serial command helper (VW / P / PW4 / ESTOP)
+    motorDrive_handleSerialOnce();
 }
+
+// ============================ Callbacks ============================
+
+// /cmd_vel (Twist): linear.x = V [m/s], angular.z = W [rad/s]
+static void on_cmd_vel(const void *msgin)
+{
+    const geometry_msgs__msg__Twist *m = (const geometry_msgs__msg__Twist *)msgin;
+    float V = (float)m->linear.x;
+    float W = (float)m->angular.z;
+
+    // Update target wheels via kinematics mapper
+    cmdVW_to_targets(V, W);
+    last_cmd_ms = millis(); // refresh watchdog timestamp
+}
+
+// Timer @ ~20ms: update encoders + motors + publish /wheel_ticks
+static void on_timer(rcl_timer_t * /*timer*/, int64_t /*last_call_time*/)
+{
+    // 1) Update encoder snapshot
+    enc.update();
+
+    // 2) Drive outputs (watchdog/decay handled inside motorDrive_update)
+    motorDrive_update();
+
+    // 3) Publish /wheel_ticks as [FL, FR, RL, RR] (int32)
+    if (msg_ticks.data.size >= 4)
+    {
+        msg_ticks.data.data[0] = (int32_t)enc.counts(W_FL);
+        msg_ticks.data.data[1] = (int32_t)enc.counts(W_FR);
+        msg_ticks.data.data[2] = (int32_t)enc.counts(W_RL);
+        msg_ticks.data.data[3] = (int32_t)enc.counts(W_RR);
+        RCSOFTCHECK(rcl_publish(&pub_ticks, &msg_ticks, NULL));
+    }
+
+    // 4) Lightweight heartbeat every ~200 ms
+    static uint32_t hb_ts = 0;
+    uint32_t now = millis();
+    if (now - hb_ts >= 200U)
+    {
+        const char *hb = "OK";
+        msg_hb.data.data = (char *)hb;
+        msg_hb.data.size = strlen(hb);
+        msg_hb.data.capacity = msg_hb.data.size + 1;
+        RCSOFTCHECK(rcl_publish(&pub_heartbeat, &msg_hb, NULL));
+        hb_ts = now;
+    }
+}
+
+// ============================ micro-ROS create/destroy ============================
+static bool createEntities()
+{
+    allocator = rcl_get_default_allocator();
+
+    // Init with Domain ID = 10 (match your ROS2 graph)
+    rcl_init_options_t init_opts = rcl_get_zero_initialized_init_options();
+    if (rcl_init_options_init(&init_opts, allocator) != RCL_RET_OK)
+        return false;
+    (void)rcl_init_options_set_domain_id(&init_opts, 69);
+
+    if (rclc_support_init_with_options(&support, 0, NULL, &init_opts, &allocator) != RCL_RET_OK)
+    {
+        rcl_init_options_fini(&init_opts);
+        return false;
+    }
+    rcl_init_options_fini(&init_opts);
+
+    // Node
+    RCCHECK(rclc_node_init_default(&node, "esp32_base", "", &support));
+
+    // Publisher: /wheel_ticks
+    RCCHECK(rclc_publisher_init_default(
+        &pub_ticks,
+        &node,
+        ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32MultiArray),
+        "/wheel_ticks"));
+    // Allocate Int32MultiArray data (size=4)
+    rosidl_runtime_c__int32__Sequence__init(&msg_ticks.data, 4);
+    msg_ticks.data.data[0] = 0;
+    msg_ticks.data.data[1] = 0;
+    msg_ticks.data.data[2] = 0;
+    msg_ticks.data.data[3] = 0;
+
+    // Publisher: /robot_heartbeat (String)
+    RCCHECK(rclc_publisher_init_default(
+        &pub_heartbeat,
+        &node,
+        ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String),
+        "/robot_heartbeat"));
+    // Pre-assign buffer (we point to const "OK" at publish time)
+
+    // Subscriber: /cmd_vel
+    RCCHECK(rclc_subscription_init_default(
+        &sub_cmd_vel,
+        &node,
+        ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
+        "/cmd_vel"));
+
+    // Timer: 20 ms control
+    const uint32_t CTRL_MS = 20;
+    RCCHECK(rclc_timer_init_default(
+        &timer_ctrl, &support, RCL_MS_TO_NS(CTRL_MS), on_timer));
+
+    // Executor
+    executor = rclc_executor_get_zero_initialized_executor();
+    RCCHECK(rclc_executor_init(&executor, &support.context, 2, &allocator));
+    RCCHECK(rclc_executor_add_timer(&executor, &timer_ctrl));
+    RCCHECK(rclc_executor_add_subscription(
+        &executor, &sub_cmd_vel, &msg_cmd_vel, on_cmd_vel, ON_NEW_DATA));
+
+    // Initial time sync
+    syncTime();
+
+    Serial.println("[INIT] micro-ROS entities created");
+    return true;
+}
+
+static bool destroyEntities()
+{
+    // Finish entities in reverse order
+    rcl_subscription_fini(&sub_cmd_vel, &node);
+    rcl_publisher_fini(&pub_heartbeat, &node);
+    rcl_publisher_fini(&pub_ticks, &node);
+
+    // Free dynamic sequences
+    if (msg_ticks.data.data)
+    {
+        rosidl_runtime_c__int32__Sequence__fini(&msg_ticks.data);
+    }
+
+    rcl_timer_fini(&timer_ctrl);
+    rclc_executor_fini(&executor);
+    rcl_node_fini(&node);
+    rclc_support_fini(&support);
+
+    Serial.println("[CLEAN] micro-ROS entities destroyed");
+    return true;
+}
+
+// ============================ Time sync helpers ============================
+static void syncTime()
+{
+    // Try to sync; do not hard-fail
+    RCSOFTCHECK(rmw_uros_sync_session(10));
+    unsigned long now_ms = millis();
+    unsigned long long agent_ms = rmw_uros_epoch_millis(); // epoch from agent
+    time_offset_ms = (agent_ms > 0ULL) ? (agent_ms - now_ms) : 0ULL;
+}
+
+static void rclErrorLoop()
+{
+    // Hard reset on fatal RCL errors (simple recovery on MCU)
+    Serial.println("[RCL] Fatal error -> restart");
+    delay(100);
+    ESP.restart();
+}
+
+// ==========================================================================
+// End of file
+// ==========================================================================
 
 #endif // Node1
