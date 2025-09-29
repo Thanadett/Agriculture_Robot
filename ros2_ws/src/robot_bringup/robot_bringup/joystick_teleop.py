@@ -11,6 +11,7 @@ from rclpy.qos import qos_profile_sensor_data, QoSProfile, ReliabilityPolicy, Hi
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Joy
 from std_msgs.msg import String
+from std_msgs.msg import Bool   
 
 
 def deadzone_map(x: float, dz: float) -> float:
@@ -45,6 +46,7 @@ class JoystickTeleop(Node):
         # buttons  (RB = turbo, LB = emergency stop)
         self.declare_parameter('btn_turbo', 5)          # RB
         self.declare_parameter('btn_emergency_stop', 4)  # LB
+        self.declare_parameter('btn_reset', 2)          # X
 
         # tuning
         self.declare_parameter('max_linear', 255.0)       # m/s
@@ -69,6 +71,7 @@ class JoystickTeleop(Node):
 
         self.btn_turbo = int(p('btn_turbo').integer_value)
         self.btn_estop = int(p('btn_emergency_stop').integer_value)
+        self.btn_reset = int(p('btn_reset').integer_value)
 
         self.max_lin = float(p('max_linear').double_value)
         self.max_ang = float(p('max_angular').double_value)
@@ -84,6 +87,7 @@ class JoystickTeleop(Node):
                              history=HistoryPolicy.KEEP_LAST, depth=10)
         self.pub_cmd = self.create_publisher(
             Twist, cmd_vel_topic, qos_profile=cmd_qos)
+        self.pub_reset = self.create_publisher(Bool, 'joy_reset', 10)
         self.sub_joy = self.create_subscription(
             Joy, joy_topic, self.cb_joy, qos_profile=qos_profile_sensor_data)
 
@@ -91,6 +95,7 @@ class JoystickTeleop(Node):
         self.last_joy_time = 0.0
         self.turbo_active = False
         self._btn_last_estop = False
+        self._btn_reset_cur = False  
 
         self.cur_v = 0.0
         self.cur_w = 0.0
@@ -121,6 +126,9 @@ class JoystickTeleop(Node):
     def cb_joy(self, msg: Joy):
         now = time.monotonic()
         self.last_joy_time = now
+
+        # อ่านปุ่มรีเซ็ต (กด=1 ปล่อย=0)
+        self._btn_reset_cur = bool(self._btn(msg, self.btn_reset))
 
         if self._btn(msg, self.btn_estop):
             self.v_target = 0.0
@@ -160,6 +168,8 @@ class JoystickTeleop(Node):
         now = time.monotonic()
         dt = now - self.t_last
         self.t_last = now
+
+        self.pub_reset.publish(Bool(data=self._btn_reset_cur)) # ส่งสถานะปุ่มรีเซ็ต
 
         # ถ้าไม่มีสัญญาณจอยนานเกิน -> หยุด
         if (now - self.last_joy_time) * 1000.0 > self.joy_to_ms:

@@ -11,8 +11,10 @@
 
 #include <rosidl_runtime_c/primitives_sequence_functions.h>
 #include <std_msgs/msg/int32_multi_array.h>
+#include <std_msgs/msg/float32_multi_array.h>
 #include <std_msgs/msg/string.h>
 #include <std_msgs/msg/float32.h>
+#include <std_msgs/msg/bool.h>
 #include <geometry_msgs/msg/twist.h>
 
 #include "config.h"
@@ -40,6 +42,8 @@
 #define TOPIC_YAW_RATE "yaw_rate"
 #define TOPIC_YAW_KF "yaw_kf"
 #define TOPIC_GYRO_BIAS "gyro_bias"
+
+#define TOPIC_JOY_RESET "joy_reset"
 
 // ============================ Conditional Debug Macros ============================
 // ปิด debug print เมื่อเชื่อมต่อ Agent เพื่อไม่ให้ทับ Serial ของ micro-ROS
@@ -120,6 +124,8 @@ static rcl_timer_t timer_ctrl;
 static rcl_publisher_t pub_ticks;
 static rcl_publisher_t pub_heartbeat;
 static rcl_subscription_t sub_cmd_vel;
+static rcl_subscription_t sub_joy_reset;
+static std_msgs__msg__Bool msg_joy_reset;
 
 // Debug pubs
 static rcl_publisher_t pub_yaw_rate;
@@ -127,7 +133,7 @@ static rcl_publisher_t pub_yaw_kf;
 static rcl_publisher_t pub_gyro_bias;
 
 // Messages
-static std_msgs__msg__Int32MultiArray msg_ticks;
+static std_msgs__msg__Float32MultiArray msg_ticks;
 static std_msgs__msg__String msg_hb;
 static geometry_msgs__msg__Twist msg_cmd_vel;
 
@@ -146,7 +152,7 @@ extern uint32_t last_cmd_ms;
 // ============================ IMU/KF/PID and fast-loop state ============================
 static IMU_MPU6050 g_imu;
 static KalmanYaw g_kf;
-static PIDRate g_pid_wz(0.6f, 0.0f, 0.02f, -0.6f, 0.6f, -0.3f, 0.3f, 10.0f);
+static PIDRate g_pid_wz(0.8f, 0.0f, 0.0f, -1.0f, 1.0f, -0.3f, 0.3f, 10.0f);
 
 static volatile float g_V_cmd = 0.0f;
 static volatile float g_W_cmd = 0.0f;
@@ -175,6 +181,14 @@ static inline float distance_per_tick()
 {
     return (2.0f * PI * WHEEL_RADIUS) / (float)ENCODER_PPR_OUTPUT_DEFAULT;
 }
+static inline float round2(float x)
+{
+    return roundf(x * 100.0f) / 100.0f; // ปัดทศนิยม 2 ตำแหน่ง
+}
+static inline float m_to_cm_2f(float m)
+{
+    return round2(m * 100.0f); // m → cm แล้วปัด .2f
+}
 
 // ============================ Forward Decls ============================
 static void rclErrorLoop();
@@ -184,6 +198,21 @@ static void syncTime();
 
 static void on_cmd_vel(const void *msgin);
 static void on_timer(rcl_timer_t *timer, int64_t last_call_time);
+static void on_joy_reset(const void *msgin);
+
+static void on_joy_reset(const void *msgin)
+{
+    const std_msgs__msg__Bool *m = (const std_msgs__msg__Bool *)msgin;
+    static bool prev = false; // จำสถานะก่อนหน้า
+    bool now = m->data;
+
+    if (now && !prev)
+    {
+        enc.reset();
+        DEBUG_PRINTLN("[RESET] wheel distance cleared by joystick");
+    }
+    prev = now;
+}
 
 static inline void fast_loop_200hz()
 {
@@ -401,10 +430,13 @@ static void on_timer(rcl_timer_t * /*timer*/, int64_t /*last_call_time*/)
 
     if (msg_ticks.data.size >= 4)
     {
-        msg_ticks.data.data[0] = (int32_t)enc.counts(W_FL);
-        msg_ticks.data.data[1] = (int32_t)enc.counts(W_FR);
-        msg_ticks.data.data[2] = (int32_t)enc.counts(W_RL);
-        msg_ticks.data.data[3] = (int32_t)enc.counts(W_RR);
+        // ใช้ "ระยะสะสมต่อวงล้อ" จาก QuadEncoderReader (หน่วย m)
+        // แล้วแปลง → cm และปัด .2f ก่อนส่งออก
+        msg_ticks.data.data[0] = m_to_cm_2f(enc.totalDistanceM(W_FL));
+        msg_ticks.data.data[1] = m_to_cm_2f(enc.totalDistanceM(W_FR));
+        msg_ticks.data.data[2] = m_to_cm_2f(enc.totalDistanceM(W_RL));
+        msg_ticks.data.data[3] = m_to_cm_2f(enc.totalDistanceM(W_RR));
+
         RCSOFTCHECK(rcl_publish(&pub_ticks, &msg_ticks, NULL));
     }
 
@@ -458,13 +490,13 @@ static bool createEntities()
 
     // Publishers
     if (rclc_publisher_init_default(&pub_ticks, &node,
-                                    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32MultiArray),
+                                    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
                                     TOPIC_WHEEL_TICKS) != RCL_RET_OK)
     {
         DEBUG_PRINTLN("[ERR] pub wheel_ticks");
         return false;
     }
-    rosidl_runtime_c__int32__Sequence__init(&msg_ticks.data, 4);
+    rosidl_runtime_c__float32__Sequence__init(&msg_ticks.data, 4);
     msg_ticks.data.data[0] = 0;
     msg_ticks.data.data[1] = 0;
     msg_ticks.data.data[2] = 0;
@@ -517,6 +549,16 @@ static bool createEntities()
     }
     DEBUG_PRINTLN("[INIT] sub cmd_vel created");
 
+    // หลังจากสร้าง sub_cmd_vel เสร็จ ให้เพิ่ม:
+    if (rclc_subscription_init_default(&sub_joy_reset, &node,
+                                       ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
+                                       TOPIC_JOY_RESET) != RCL_RET_OK)
+    {
+        DEBUG_PRINTLN("[ERR] sub joy_reset");
+        return false;
+    }
+    DEBUG_PRINTLN("[INIT] sub joy_reset created");
+
     // Timer
     const uint32_t CTRL_MS = 20;
     if (rclc_timer_init_default(&timer_ctrl, &support, RCL_MS_TO_NS(CTRL_MS), on_timer) != RCL_RET_OK)
@@ -528,13 +570,15 @@ static bool createEntities()
 
     // Executor
     executor = rclc_executor_get_zero_initialized_executor();
-    if (rclc_executor_init(&executor, &support.context, 2, &allocator) != RCL_RET_OK)
+    if (rclc_executor_init(&executor, &support.context, 3, &allocator) != RCL_RET_OK)
     {
         DEBUG_PRINTLN("[ERR] executor init");
         return false;
     }
     rclc_executor_add_timer(&executor, &timer_ctrl);
     rclc_executor_add_subscription(&executor, &sub_cmd_vel, &msg_cmd_vel, on_cmd_vel, ON_NEW_DATA);
+    rclc_executor_add_subscription(&executor, &sub_joy_reset,
+                                   &msg_joy_reset, on_joy_reset, ON_NEW_DATA);
     DEBUG_PRINTLN("[INIT] executor ready");
 
     // Initial time sync
@@ -547,6 +591,7 @@ static bool createEntities()
 static bool destroyEntities()
 {
     rcl_subscription_fini(&sub_cmd_vel, &node);
+    rcl_subscription_fini(&sub_joy_reset, &node);
 
     rcl_publisher_fini(&pub_gyro_bias, &node);
     rcl_publisher_fini(&pub_yaw_kf, &node);
@@ -555,7 +600,7 @@ static bool destroyEntities()
     rcl_publisher_fini(&pub_ticks, &node);
 
     if (msg_ticks.data.data)
-        rosidl_runtime_c__int32__Sequence__fini(&msg_ticks.data);
+        rosidl_runtime_c__float__Sequence__fini(&msg_ticks.data);
 
     rcl_timer_fini(&timer_ctrl);
     rclc_executor_fini(&executor);

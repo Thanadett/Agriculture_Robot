@@ -16,7 +16,7 @@ class JoystickButtons(Node):
         self.declare_parameter('servo_cmd_topic', '/servo_cmd')
         self.declare_parameter('btn_a', 0)  # Xbox: A=0
         self.declare_parameter('btn_b', 1)  # Xbox: B=1
-        self.declare_parameter('btn_x', 2)  # Xbox: X=2
+        # self.declare_parameter('btn_x', 2)  # Xbox: X=2
         self.declare_parameter('btn_y', 3)  # Xbox: Y=3
         self.declare_parameter('debounce_ms', 20)  # กันสั่นเล็กน้อย
 
