@@ -26,7 +26,7 @@ static constexpr bool INVERT_RR = false;
 
 // ---------------- LEDC PWM ----------------
 static constexpr int PWM_FREQ_HZ = 20000; // 20kHz เงียบ
-static constexpr int PWM_RES_BITS = 8;    // 10-bit (0..1023)
+static constexpr int PWM_RES_BITS = 8;    // 8-bit (0..255)
 static constexpr int PWM_MAX_DUTY = (1 << PWM_RES_BITS) - 1;
 
 // 8 ช่องไม่ซ้ำกัน
@@ -80,7 +80,17 @@ static constexpr float IDLE_DECAY = 0.85f;
 #define ENC_INV_RR (-1)
 
 /* -------- IMU (MPU6050) -------- */
-#define I2C_SDA_PIN 21
-#define I2C_SCL_PIN 22
-#define CF_ALPHA 0.96f        // (reserved) complementary filter alpha
-#define IMU_CALIB_SAMPLES 800 // Gyro Z bias calibration samples
+#define SDA 21
+#define SCL 22
+
+// ---------- IMU Settings ----------
+static constexpr uint8_t MPU6050_I2C_ADDR = 0x68; // AD0=GND
+static constexpr float IMU_SAMPLE_HZ = 100.0f;    // ความถี่ฟังค่าจริง
+static constexpr float BETA_MADGWICK = 0.08f;     // ค่ากำกับฟิวชัน (ยิ่งมาก ตอบสนองไว/ไวต่อ noise)
+
+// Accel: ±2g, Gyro: ±250 dps
+static constexpr float ACCEL_SENS_2G = 16384.0f; // LSB/g
+static constexpr float GYRO_SENS_250 = 131.0f;   // LSB/(deg/s)
+
+// ============================ IMU/KF/PID and fast-loop state ============================
+static PIDRate g_pid_wz(0.6f, 0.0f, 0.02f, -0.6f, 0.6f, -0.3f, 0.3f, 10.0f);

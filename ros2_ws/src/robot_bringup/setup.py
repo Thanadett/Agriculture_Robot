@@ -10,7 +10,7 @@ setup(
     packages=[package_name],
     package_data={
         package_name: [
-            'templates/*.html',       
+            'templates/*.html',
         ],
     },
     data_files=[
@@ -19,7 +19,8 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', glob('launch/*.py')),
         ('share/' + package_name + '/config', ['config/params.yaml',]),
-        ('share/' + package_name + '/scripts', ['robot_bringup/run_camera.sh']),
+        ('share/' + package_name + '/scripts',
+         ['robot_bringup/run_camera.sh']),
     ],
     install_requires=[
         'setuptools',
@@ -44,6 +45,8 @@ setup(
             'node2_bridge = robot_bringup.node2_bridge:main',
             'base_controller = robot_bringup.base_controller:main',
             'encode_bridge = robot_bringup.encode_bridge:main',
+            'wheel_ticks_from_cmdvel= robot_bringup.wheel_ticks_from_cmdvel:main',
+            'pid_check = robot_bringup.pid_check:main',
         ],
     },
     python_requires='>=3.10,<3.13',

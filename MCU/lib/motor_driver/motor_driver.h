@@ -3,24 +3,24 @@
 #include "config.h"
 
 // ---------------- Globals (defined in .cpp) ----------------
-extern String   rx_line;
-extern bool     estop;
-extern uint32_t last_cmd_ms;
+extern String rx_line;       // Serial line buffer
+extern bool estop;           // Emergency stop flag
+extern uint32_t last_cmd_ms; // Last time we received a command
 
-// เป้าหมาย PWM (normalized -1..1)
+// Target PWM for each wheel (normalized -1..1)
 extern float tgt_LF, tgt_LR, tgt_RF, tgt_RR;
-// เอาต์พุต PWM หลัง slew
+// Output PWM after slew-rate limiting (normalized -1..1)
 extern float out_LF, out_LR, out_RF, out_RR;
 
 // ---------------- Public API ----------------
-// เรียกครั้งเดียวใน setup() (ตั้งค่า PWM, พิมพ์เมนู)
+// Initialize LEDC channels, pins and set motors to 0
 void motorDrive_begin();
 
-// เรียกบ่อยๆ ใน loop() เพื่ออ่านคำสั่งจาก Serial (VW/P/PW4/ESTOP)
+// Parse one or more Serial command lines if available (VW / P / PW4 / ESTOP)
 void motorDrive_handleSerialOnce();
 
-// เรียกบ่อยๆ ใน loop() เพื่อทำ watchdog + slew + เขียน PWM
+// Run watchdog + idle decay + slew-rate + deadtime + write PWM
 void motorDrive_update();
 
-// เผื่ออยากเรียกเองจากที่อื่น (เช่น callback micro-ROS) ให้ map V,W -> เป้าหมายล้อ
+// Map (V, W) to left/right wheel linear velocities then to PWM targets
 void cmdVW_to_targets(float V_mps, float W_radps);

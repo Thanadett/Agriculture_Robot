@@ -1,71 +1,45 @@
 #pragma once
 #include <Arduino.h>
-#include <Wire.h>
 #include <Adafruit_MPU6050.h>
+#include <MadgwickAHRS.h>
 #include <Adafruit_Sensor.h>
-#include "../logger/logger.h"
 
-// MPU6050 complementary filter (yaw = gyro integration w/ bias removal)
-class IMU6050CF
+class IMU_MPU6050
 {
 public:
-    bool begin(int sda, int scl, int calib_samples)
-    {
-        Wire.begin(sda, scl);
-        if (!mpu.begin())
-        {
-            logger.error("MPU6050 not found");
-            return false;
-        }
-        mpu.setAccelerometerRange(MPU6050_RANGE_4_G);
-        mpu.setGyroRange(MPU6050_RANGE_500_DEG);
-        calibrateGyro(calib_samples);
-        last_ms_ = millis();
-        return true;
-    }
+    // ======== User Config ========
+    static constexpr float SAMPLE_HZ = 200.0f;
+    static constexpr uint32_t CALIB_MS = 3000;     // stationary calibration time
+    static constexpr float BETA = 0.05f;           // Madgwick beta for 200 Hz
+    static constexpr float GYRO_STILL_THR = 0.02f; // rad/s
+    static constexpr float ACC_NORM_THR_G = 0.10f;
+    static constexpr float BIAS_ALPHA = 0.0015f;
 
-    // Returns yaw (deg). Roll/pitch computed but not returned here.
-    float update()
-    {
-        sensors_event_t a, g, t;
-        mpu.getEvent(&a, &g, &t);
-        uint32_t now = millis();
-        float dt = (now - last_ms_) * 1e-3f;
-        if (dt <= 0)
-            dt = 1e-3f;
-        last_ms_ = now;
+    // ======== Data Outputs ========
+    float roll_deg{0}, pitch_deg{0}, yaw_deg{0};
+    float yaw_rate_body_rad{0};  // r (corrected)
+    float yaw_rate_world_rad{0}; // ψ̇ (corrected for roll/pitch)
 
-        // Gyro bias compensated
-        float gz = (g.gyro.z * RAD_TO_DEG) - gyro_bias_z_deg_s_;
-        yaw_deg_ += gz * dt; // ไม่มี magnetometer → มี drift ได้
-        // keep in [-180,180]
-        if (yaw_deg_ > 180)
-            yaw_deg_ -= 360;
-        else if (yaw_deg_ < -180)
-            yaw_deg_ += 360;
-        return yaw_deg_;
-    }
-
-    float yaw_deg() const { return yaw_deg_; }
+    IMU_MPU6050();
+    bool begin();
+    void update();
+    void printDebug(uint32_t print_ms = 100);
 
 private:
-    Adafruit_MPU6050 mpu;
-    uint32_t last_ms_ = 0;
-    float yaw_deg_ = 0;
-    float gyro_bias_z_deg_s_ = 0;
+    Adafruit_MPU6050 mpu_;
+    Madgwick filter_;
 
-    void calibrateGyro(int n)
-    {
-        logger.info("Calibrating gyro: %d samples", n);
-        float sum = 0;
-        for (int i = 0; i < n; i++)
-        {
-            sensors_event_t a, g, t;
-            mpu.getEvent(&a, &g, &t);
-            sum += g.gyro.z * RAD_TO_DEG;
-            delay(2);
-        }
-        gyro_bias_z_deg_s_ = sum / n;
-        logger.info("Gyro Z bias = %.3f deg/s", gyro_bias_z_deg_s_);
-    }
+    // static bias from boot calibration
+    float gyro_bx_{0}, gyro_by_{0}, gyro_bz_{0};
+    float accel_bx_{0}, accel_by_{0}, accel_bz_{0};
+
+    // online bias estimate for gz
+    float gzb_est_{0};
+
+    // time keeping
+    uint32_t last_us_{0};
+    uint32_t last_print_{0};
+    const uint32_t period_us_ = static_cast<uint32_t>(1e6f / SAMPLE_HZ);
+
+    void calibrate(uint32_t ms);
 };

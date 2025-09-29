@@ -3,7 +3,7 @@ import math
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
-from std_msgs.msg import Int32MultiArray
+from std_msgs.msg import Int32MultiArray, Float32  # <- เพิ่ม Float32
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import TransformStamped
 from builtin_interfaces.msg import Time
@@ -14,6 +14,7 @@ try:
 except Exception:
     HAS_TF = False
 
+
 class BaseNode(Node):
     def __init__(self):
         super().__init__('base_controller')
@@ -21,21 +22,38 @@ class BaseNode(Node):
         # ---------------- Parameters ----------------
         self.declare_parameter('ticks_topic', '/wheel_ticks')
         self.declare_parameter('odom_topic', '/odom')
-        self.declare_parameter('wheel_radius_m', 0.0635) # รัศมีล้อ (เมตร)
-        self.declare_parameter('track_width_m', 0.365)    # ระยะล้อซ้าย-ขวา (เมตร)
-        self.declare_parameter('ppr_out', 5940.0)          # พัลส์/รอบล้อ (ต้องตรงกับ ESP32)
+        self.declare_parameter('wheel_radius_m', 0.0635)
+        self.declare_parameter('track_width_m', 0.365)
+        self.declare_parameter('ppr_out', 5940.0)
         self.declare_parameter('frame_id', 'odom')
         self.declare_parameter('child_frame_id', 'base_link')
         self.declare_parameter('publish_tf', True)
 
-        self.ticks_topic = self.get_parameter('ticks_topic').get_parameter_value().string_value
-        self.odom_topic  = self.get_parameter('odom_topic').get_parameter_value().string_value
-        self.R  = float(self.get_parameter('wheel_radius_m').value)
-        self.W  = float(self.get_parameter('track_width_m').value)
+        # New: แหล่ง yaw / ω
+        self.declare_parameter('yaw_mode', 'enc')     # 'enc' | 'kf' | 'blend'
+        self.declare_parameter('blend_alpha', 0.2)    # 0..1 (สัดส่วน KF)
+        self.declare_parameter('wz_source', 'enc')    # 'enc' | 'imu'
+
+        self.ticks_topic = self.get_parameter(
+            'ticks_topic').get_parameter_value().string_value
+        self.odom_topic = self.get_parameter(
+            'odom_topic').get_parameter_value().string_value
+        self.R = float(self.get_parameter('wheel_radius_m').value)
+        self.W = float(self.get_parameter('track_width_m').value)
         self.PPR = float(self.get_parameter('ppr_out').value)
-        self.frame_id = self.get_parameter('frame_id').get_parameter_value().string_value
-        self.child_frame_id = self.get_parameter('child_frame_id').get_parameter_value().string_value
-        self.publish_tf = bool(self.get_parameter('publish_tf').value) and HAS_TF
+        self.frame_id = self.get_parameter(
+            'frame_id').get_parameter_value().string_value
+        self.child_frame_id = self.get_parameter(
+            'child_frame_id').get_parameter_value().string_value
+        self.publish_tf = bool(self.get_parameter(
+            'publish_tf').value) and HAS_TF
+
+        # New: params
+        self.yaw_mode = self.get_parameter(
+            'yaw_mode').get_parameter_value().string_value
+        self.blend_alpha = float(self.get_parameter('blend_alpha').value)
+        self.wz_source = self.get_parameter(
+            'wz_source').get_parameter_value().string_value
 
         # ---------------- QoS ----------------
         qos = QoSProfile(
@@ -48,6 +66,14 @@ class BaseNode(Node):
         self.sub_ticks = self.create_subscription(
             Int32MultiArray, self.ticks_topic, self.cb_ticks, qos
         )
+        # New: subscribe yaw_kf & yaw_rate
+        self.sub_yaw_kf = self.create_subscription(
+            Float32, '/yaw_kf', self.cb_yaw_kf, qos
+        )
+        self.sub_yaw_rate = self.create_subscription(
+            Float32, '/yaw_rate', self.cb_yaw_rate, qos
+        )
+
         self.pub_odom = self.create_publisher(Odometry, self.odom_topic, qos)
         self.tf = TransformBroadcaster(self) if self.publish_tf else None
 
@@ -58,19 +84,37 @@ class BaseNode(Node):
         self.y = 0.0
         self.th = 0.0
 
+        # New: state from ESP32 topics
+        self.last_yaw_kf = None     # rad (unwrapped)
+        self.have_yaw_kf = False
+        self.last_wz = None         # rad/s (world)
+        self.have_wz = False
+
         # Precompute circumference factor
         self.circ = 2.0 * math.pi * self.R
-        self.rev_per_count = 1.0 / max(self.PPR, 1.0)  # กันหารด้วยศูนย์
+        self.rev_per_count = 1.0 / max(self.PPR, 1.0)
 
         self.get_logger().info(
             f'base_controller up: sub={self.ticks_topic}, pub={self.odom_topic}, '
-            f'R={self.R:.3f} m, W={self.W:.3f} m, PPR={self.PPR:.1f}, TF={bool(self.tf)}'
+            f'R={self.R:.3f} m, W={self.W:.3f} m, PPR={self.PPR:.1f}, TF={bool(self.tf)}, '
+            f'yaw_mode={self.yaw_mode}, wz_source={self.wz_source}, alpha={self.blend_alpha:.2f}'
         )
 
+    # -------- new callbacks --------
+    def cb_yaw_kf(self, msg: Float32):
+        self.last_yaw_kf = float(msg.data)  # unwrapped already
+        self.have_yaw_kf = True
+
+    def cb_yaw_rate(self, msg: Float32):
+        self.last_wz = float(msg.data)      # rad/s, world
+        self.have_wz = True
+
+    # -------- main ticks callback --------
     def cb_ticks(self, msg: Int32MultiArray):
         data = list(msg.data)
         if len(data) != 4:
-            self.get_logger().warn(f'/wheel_ticks length={len(data)} (expected 4); ignored')
+            self.get_logger().warn(
+                f'/wheel_ticks length={len(data)} (expected 4); ignored')
             return
 
         now = self.get_clock().now()
@@ -93,28 +137,41 @@ class BaseNode(Node):
         dRR = data[3] - self.last_ticks[3]
 
         # convert counts -> distance per wheel (meters)
-        # distance = delta_rev * circumference = (delta_count / PPR) * 2πR
         sFL = dFL * self.rev_per_count * self.circ
         sFR = dFR * self.rev_per_count * self.circ
         sRL = dRL * self.rev_per_count * self.circ
         sRR = dRR * self.rev_per_count * self.circ
 
-        # left/right average (diff-drive from 4 wheels)
+        # left/right average
         sL = 0.5 * (sFL + sRL)
         sR = 0.5 * (sFR + sRR)
 
-        # body-frame integration
+        # base integration terms from encoders
         ds = 0.5 * (sR + sL)
-        dth = (sR - sL) / max(self.W, 1e-6)
+        dth_enc = (sR - sL) / max(self.W, 1e-6)
+        th_enc = self.normalize_angle(self.th + dth_enc)
 
-        # integrate pose (runge-kutta 1/2 step)
-        self.x += ds * math.cos(self.th + 0.5 * dth)
-        self.y += ds * math.sin(self.th + 0.5 * dth)
-        self.th = self.normalize_angle(self.th + dth)
+        # --- Choose yaw update path ---
+        if self.yaw_mode == 'kf' and self.have_yaw_kf:
+            # Trust KF heading (unwrapped) for absolute heading; normalize for TF
+            self.th = self.normalize_angle(self.last_yaw_kf)
+        elif self.yaw_mode == 'blend' and self.have_yaw_kf:
+            # Complementary blend: enc short-term + KF long-term
+            # th_new = (1-alpha)*th_enc + alpha*yaw_kf  (then normalize)
+            alpha = max(0.0, min(1.0, self.blend_alpha))
+            th_blend = (1.0 - alpha) * th_enc + alpha * self.last_yaw_kf
+            self.th = self.normalize_angle(th_blend)
+        else:
+            # enc only
+            self.th = th_enc
 
         # velocities
         vx = ds / dt
-        vth = dth / dt
+
+        if self.wz_source == 'imu' and self.have_wz:
+            vth = float(self.last_wz)          # rad/s from IMU world yaw-rate
+        else:
+            vth = dth_enc / dt                 # from enc
 
         # publish odometry
         odom = Odometry()
@@ -124,15 +181,16 @@ class BaseNode(Node):
 
         # pose
         qz, qw = math.sin(self.th * 0.5), math.cos(self.th * 0.5)
-        odom.pose.pose.position.x = self.x
-        odom.pose.pose.position.y = self.y
+        # update x/y here so TF and pose match v
+        odom.pose.pose.position.x = self.x + ds * math.cos(self.th)
+        odom.pose.pose.position.y = self.y + ds * math.sin(self.th)
         odom.pose.pose.position.z = 0.0
         odom.pose.pose.orientation.x = 0.0
         odom.pose.pose.orientation.y = 0.0
         odom.pose.pose.orientation.z = qz
         odom.pose.pose.orientation.w = qw
 
-        # (optional) simple covariances
+        # (optional) covariances
         odom.pose.covariance = [
             1e-3, 0.0,  0.0, 0.0, 0.0, 0.0,
             0.0,  1e-3, 0.0, 0.0, 0.0, 0.0,
@@ -142,10 +200,9 @@ class BaseNode(Node):
             0.0,  0.0,  0.0, 0.0, 0.0, 1e-2
         ]
 
-        # twist
-        odom.twist.twist.linear.x  = float(vx)
-        odom.twist.twist.linear.y  = 0.0
-        odom.twist.twist.linear.z  = 0.0
+        odom.twist.twist.linear.x = float(vx)
+        odom.twist.twist.linear.y = 0.0
+        odom.twist.twist.linear.z = 0.0
         odom.twist.twist.angular.x = 0.0
         odom.twist.twist.angular.y = 0.0
         odom.twist.twist.angular.z = float(vth)
@@ -166,8 +223,8 @@ class BaseNode(Node):
             t.header.stamp = odom.header.stamp
             t.header.frame_id = self.frame_id
             t.child_frame_id = self.child_frame_id
-            t.transform.translation.x = self.x
-            t.transform.translation.y = self.y
+            t.transform.translation.x = odom.pose.pose.position.x
+            t.transform.translation.y = odom.pose.pose.position.y
             t.transform.translation.z = 0.0
             t.transform.rotation.x = 0.0
             t.transform.rotation.y = 0.0
@@ -176,6 +233,8 @@ class BaseNode(Node):
             self.tf.sendTransform(t)
 
         # latch
+        self.x = odom.pose.pose.position.x
+        self.y = odom.pose.pose.position.y
         self.last_ticks = data
         self.last_time = now
 
@@ -186,7 +245,6 @@ class BaseNode(Node):
 
     @staticmethod
     def to_time_msg(t) -> Time:
-        # rclpy Time -> builtin_interfaces/Time
         return Time(sec=int(t.nanoseconds * 1e-9), nanosec=int(t.nanoseconds % 1e9))
 
 

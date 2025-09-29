@@ -42,9 +42,9 @@ class JoystickTeleop(Node):
         self.declare_parameter('invert_left_y', 1.0)    # 1 หรือ -1
         self.declare_parameter('invert_right_x', 1.0)   # 1 หรือ -1
 
-        # buttons  (RB = turbo, A = emergency stop)
+        # buttons  (RB = turbo, LB = emergency stop)
         self.declare_parameter('btn_turbo', 5)          # RB
-        self.declare_parameter('btn_emergency_stop', 4) # LB
+        self.declare_parameter('btn_emergency_stop', 4)  # LB
 
         # tuning
         self.declare_parameter('max_linear', 255.0)       # m/s
@@ -53,7 +53,7 @@ class JoystickTeleop(Node):
         self.declare_parameter('expo_linear', 3.0)
         self.declare_parameter('expo_angular', 2.5)
 
-        self.declare_parameter('ramp_rate_linear', 250.0) 
+        self.declare_parameter('ramp_rate_linear', 250.0)
         self.declare_parameter('ramp_rate_angular', 250.0)
         self.declare_parameter('joy_timeout_ms', 800)
 
@@ -78,7 +78,6 @@ class JoystickTeleop(Node):
         self.ramp_lin = float(p('ramp_rate_linear').double_value)
         self.ramp_ang = float(p('ramp_rate_angular').double_value)
         self.joy_to_ms = int(p('joy_timeout_ms').integer_value)
-
 
         # ---------- Pub/Sub ----------
         cmd_qos = QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
@@ -144,7 +143,7 @@ class JoystickTeleop(Node):
         v_norm = lin_in * self.max_lin
         w_norm = ang_in * self.max_ang
 
-        # RB = instant max 
+        # RB = instant max
         self.turbo_active = bool(self._btn(msg, self.btn_turbo))
         if self.turbo_active:
             # ถ้าแกนเป็น 0 -> คงที่ 0
@@ -168,7 +167,7 @@ class JoystickTeleop(Node):
             self.w_target = 0.0
             self.turbo_active = False
 
-        if self._btn_last_estop: 
+        if self._btn_last_estop:
             self.cur_v = 0.0
             self.cur_w = 0.0
         elif self.turbo_active:
