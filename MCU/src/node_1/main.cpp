@@ -26,11 +26,11 @@
 
 // ---------------- Build-time config ----------------
 #ifndef ROS_DOMAIN_ID_MCU
-#define ROS_DOMAIN_ID_MCU 69 // ปรับได้จาก build_flags: -DROS_DOMAIN_ID_MCU=69
+#define ROS_DOMAIN_ID_MCU 69
 #endif
 
 #ifndef USE_INNER_PID
-#define USE_INNER_PID 0 // เปิด inner PID ด้วย -DUSE_INNER_PID=1
+#define USE_INNER_PID 0
 #endif
 
 // ใช้ "relative topics" ตาม best-practice ของ micro-ROS
@@ -41,23 +41,46 @@
 #define TOPIC_YAW_KF "yaw_kf"
 #define TOPIC_GYRO_BIAS "gyro_bias"
 
+// ============================ Conditional Debug Macros ============================
+// ปิด debug print เมื่อเชื่อมต่อ Agent เพื่อไม่ให้ทับ Serial ของ micro-ROS
+#define DEBUG_ENABLED (g_state != AGENT_CONNECTED)
+
+#define DEBUG_PRINT(x)       \
+    do                       \
+    {                        \
+        if (DEBUG_ENABLED)   \
+            Serial.print(x); \
+    } while (0)
+#define DEBUG_PRINTLN(x)       \
+    do                         \
+    {                          \
+        if (DEBUG_ENABLED)     \
+            Serial.println(x); \
+    } while (0)
+#define DEBUG_PRINTF(...)               \
+    do                                  \
+    {                                   \
+        if (DEBUG_ENABLED)              \
+            Serial.printf(__VA_ARGS__); \
+    } while (0)
+
 // ============================ Safety Macros ============================
-#define RCCHECK(fn)                                                              \
-    {                                                                            \
-        rcl_ret_t rc_ = (fn);                                                    \
-        if (rc_ != RCL_RET_OK)                                                   \
-        {                                                                        \
-            Serial.printf("[RCL] Error %d at %s:%d\n", rc_, __FILE__, __LINE__); \
-            rclErrorLoop();                                                      \
-        }                                                                        \
+#define RCCHECK(fn)                                                             \
+    {                                                                           \
+        rcl_ret_t rc_ = (fn);                                                   \
+        if (rc_ != RCL_RET_OK)                                                  \
+        {                                                                       \
+            DEBUG_PRINTF("[RCL] Error %d at %s:%d\n", rc_, __FILE__, __LINE__); \
+            rclErrorLoop();                                                     \
+        }                                                                       \
     }
-#define RCSOFTCHECK(fn)                                                               \
-    {                                                                                 \
-        rcl_ret_t rc_ = (fn);                                                         \
-        if (rc_ != RCL_RET_OK)                                                        \
-        {                                                                             \
-            Serial.printf("[RCL] Soft error %d at %s:%d\n", rc_, __FILE__, __LINE__); \
-        }                                                                             \
+#define RCSOFTCHECK(fn)                                                              \
+    {                                                                                \
+        rcl_ret_t rc_ = (fn);                                                        \
+        if (rc_ != RCL_RET_OK)                                                       \
+        {                                                                            \
+            DEBUG_PRINTF("[RCL] Soft error %d at %s:%d\n", rc_, __FILE__, __LINE__); \
+        }                                                                            \
     }
 
 // Helper for periodic execution using uxr_millis()
@@ -94,14 +117,14 @@ static rclc_executor_t executor;
 static rcl_timer_t timer_ctrl;
 
 // Pub/Sub
-static rcl_publisher_t pub_ticks;      // wheel_ticks
-static rcl_publisher_t pub_heartbeat;  // robot_heartbeat
-static rcl_subscription_t sub_cmd_vel; // cmd_vel
+static rcl_publisher_t pub_ticks;
+static rcl_publisher_t pub_heartbeat;
+static rcl_subscription_t sub_cmd_vel;
 
 // Debug pubs
-static rcl_publisher_t pub_yaw_rate;  // yaw_rate (Float32)
-static rcl_publisher_t pub_yaw_kf;    // yaw_kf   (Float32)
-static rcl_publisher_t pub_gyro_bias; // gyro_bias(Float32)
+static rcl_publisher_t pub_yaw_rate;
+static rcl_publisher_t pub_yaw_kf;
+static rcl_publisher_t pub_gyro_bias;
 
 // Messages
 static std_msgs__msg__Int32MultiArray msg_ticks;
@@ -118,18 +141,19 @@ static uint32_t last_time_sync_ms = 0;
 
 // ============================ Robot Modules ============================
 static QuadEncoderReader enc;
-extern uint32_t last_cmd_ms; // from motor_drive.cpp
+extern uint32_t last_cmd_ms;
 
 // ============================ IMU/KF/PID and fast-loop state ============================
 static IMU_MPU6050 g_imu;
 static KalmanYaw g_kf;
+static PIDRate g_pid_wz(0.6f, 0.0f, 0.02f, -0.6f, 0.6f, -0.3f, 0.3f, 10.0f);
 
 static volatile float g_V_cmd = 0.0f;
 static volatile float g_W_cmd = 0.0f;
 
 static int32_t prev_counts[W_COUNT] = {0, 0, 0, 0};
-static float yaw_enc_unwrapped = 0.0f; // [rad]
-static uint32_t last_fast_us = 0;      // for ~200 Hz loop
+static float yaw_enc_unwrapped = 0.0f;
+static uint32_t last_fast_us = 0;
 
 #ifndef TRACK_W_M
 #ifdef WHEEL_SEP
@@ -171,7 +195,7 @@ static inline void fast_loop_200hz()
     }
     uint32_t dt_us = now_us - last_fast_us;
     if (dt_us < 5000U)
-        return; // ~200 Hz
+        return;
     last_fast_us = now_us;
 
     const float dt = dt_us * 1e-6f;
@@ -180,7 +204,7 @@ static inline void fast_loop_200hz()
     g_imu.update();
     const float wz_world = g_imu.yaw_rate_world_rad;
 
-    // 2) Encoder yaw (no enc.update() here)
+    // 2) Encoder yaw
     int32_t cFL = (int32_t)enc.counts(W_FL);
     int32_t cFR = (int32_t)enc.counts(W_FR);
     int32_t cRL = (int32_t)enc.counts(W_RL);
@@ -234,11 +258,11 @@ void setup()
 {
     Serial.begin(115200);
     delay(100);
-    Serial.println("\n[BOOT] ESP32 starting...");
+    DEBUG_PRINTLN("\n[BOOT] ESP32 starting...");
 
 #ifndef MICROROS_WIFI
     set_microros_serial_transports(Serial);
-    Serial.println("[MICROROS] Serial transport set");
+    DEBUG_PRINTLN("[MICROROS] Serial transport set");
 #else
 #error "Wi-Fi transport not configured in this example"
 #endif
@@ -257,9 +281,9 @@ void setup()
     prev_counts[W_RR] = (int32_t)enc.counts(W_RR);
 
     if (!g_imu.begin())
-        Serial.println("[IMU] init FAILED (check wiring)");
+        DEBUG_PRINTLN("[IMU] init FAILED (check wiring)");
     else
-        Serial.println("[IMU] init OK");
+        DEBUG_PRINTLN("[IMU] init OK");
 
     g_kf.setNoise(1e-5f, 1e-6f, 1e-3f);
     g_kf.init(0.0f, 0.0f);
@@ -274,10 +298,10 @@ void setup()
     syncTime();
     last_time_sync_ms = millis();
 
-    Serial.printf("[INFO] Domain: %d, Topics: %s, %s, %s, %s, %s, %s\n",
-                  ROS_DOMAIN_ID_MCU,
-                  TOPIC_WHEEL_TICKS, TOPIC_HEARTBEAT, TOPIC_CMD_VEL,
-                  TOPIC_YAW_RATE, TOPIC_YAW_KF, TOPIC_GYRO_BIAS);
+    DEBUG_PRINTF("[INFO] Domain: %d, Topics: %s, %s, %s, %s, %s, %s\n",
+                 ROS_DOMAIN_ID_MCU,
+                 TOPIC_WHEEL_TICKS, TOPIC_HEARTBEAT, TOPIC_CMD_VEL,
+                 TOPIC_YAW_RATE, TOPIC_YAW_KF, TOPIC_GYRO_BIAS);
 }
 
 // ============================ Main loop ============================
@@ -302,25 +326,25 @@ void loop()
             if (pr == RMW_RET_OK)
             {
                 g_state = AGENT_AVAILABLE;
-                Serial.println("[PING] agent available");
+                DEBUG_PRINTLN("[PING] agent available");
             }
             else
             {
-                Serial.println("[PING] no agent");
+                DEBUG_PRINTLN("[PING] no agent");
             }
         });
         break;
 
     case AGENT_AVAILABLE:
-        Serial.println("[STATE] AGENT_AVAILABLE -> creating entities...");
+        DEBUG_PRINTLN("[STATE] AGENT_AVAILABLE -> creating entities...");
         if (createEntities())
         {
             g_state = AGENT_CONNECTED;
-            Serial.println("[STATE] AGENT_CONNECTED");
+            DEBUG_PRINTLN("[STATE] AGENT_CONNECTED");
         }
         else
         {
-            Serial.println("[ERR] createEntities failed, retry...");
+            DEBUG_PRINTLN("[ERR] createEntities failed, retry...");
             destroyEntities();
             g_state = WAITING_AGENT;
         }
@@ -330,7 +354,7 @@ void loop()
         EXECUTE_EVERY_N_MS(300, {
             if (RMW_RET_OK != rmw_uros_ping_agent(300, 3))
             {
-                Serial.println("[WARN] agent lost -> disconnect");
+                DEBUG_PRINTLN("[WARN] agent lost -> disconnect");
                 g_state = AGENT_DISCONNECTED;
             }
         });
@@ -345,12 +369,15 @@ void loop()
         motorDrive_update();
         destroyEntities();
         g_state = WAITING_AGENT;
-        Serial.println("[STATE] DISCONNECTED -> WAITING_AGENT");
+        DEBUG_PRINTLN("[STATE] DISCONNECTED -> WAITING_AGENT");
         break;
     }
 
-    // Local serial command helper
-    motorDrive_handleSerialOnce();
+    // Local serial command helper (ปิดเมื่อเชื่อม Agent)
+    if (g_state != AGENT_CONNECTED)
+    {
+        motorDrive_handleSerialOnce();
+    }
 }
 
 // ============================ Callbacks ============================
@@ -406,16 +433,16 @@ static bool createEntities()
     rcl_ret_t drc = rcl_init_options_set_domain_id(&init_opts, ROS_DOMAIN_ID_MCU);
     if (drc != RCL_RET_OK)
     {
-        Serial.printf("[ERR] set_domain_id rc=%d\n", drc);
+        DEBUG_PRINTF("[ERR] set_domain_id rc=%d\n", drc);
     }
     else
     {
-        Serial.printf("[OK ] set_domain_id=%d\n", ROS_DOMAIN_ID_MCU);
+        DEBUG_PRINTF("[OK ] set_domain_id=%d\n", ROS_DOMAIN_ID_MCU);
     }
 
     if (rclc_support_init_with_options(&support, 0, NULL, &init_opts, &allocator) != RCL_RET_OK)
     {
-        Serial.println("[ERR] rclc_support_init_with_options");
+        DEBUG_PRINTLN("[ERR] rclc_support_init_with_options");
         rcl_init_options_fini(&init_opts);
         return false;
     }
@@ -424,17 +451,17 @@ static bool createEntities()
     // Node
     if (rclc_node_init_default(&node, "esp32_base", "", &support) != RCL_RET_OK)
     {
-        Serial.println("[ERR] node init");
+        DEBUG_PRINTLN("[ERR] node init");
         return false;
     }
-    Serial.println("[INIT] node esp32_base created");
+    DEBUG_PRINTLN("[INIT] node esp32_base created");
 
     // Publishers
     if (rclc_publisher_init_default(&pub_ticks, &node,
                                     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32MultiArray),
                                     TOPIC_WHEEL_TICKS) != RCL_RET_OK)
     {
-        Serial.println("[ERR] pub wheel_ticks");
+        DEBUG_PRINTLN("[ERR] pub wheel_ticks");
         return false;
     }
     rosidl_runtime_c__int32__Sequence__init(&msg_ticks.data, 4);
@@ -442,78 +469,78 @@ static bool createEntities()
     msg_ticks.data.data[1] = 0;
     msg_ticks.data.data[2] = 0;
     msg_ticks.data.data[3] = 0;
-    Serial.println("[INIT] pub wheel_ticks created");
+    DEBUG_PRINTLN("[INIT] pub wheel_ticks created");
 
     if (rclc_publisher_init_default(&pub_heartbeat, &node,
                                     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String),
                                     TOPIC_HEARTBEAT) != RCL_RET_OK)
     {
-        Serial.println("[ERR] pub heartbeat");
+        DEBUG_PRINTLN("[ERR] pub heartbeat");
         return false;
     }
-    Serial.println("[INIT] pub robot_heartbeat created");
+    DEBUG_PRINTLN("[INIT] pub robot_heartbeat created");
 
     if (rclc_publisher_init_default(&pub_yaw_rate, &node,
                                     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32),
                                     TOPIC_YAW_RATE) != RCL_RET_OK)
     {
-        Serial.println("[ERR] pub yaw_rate");
+        DEBUG_PRINTLN("[ERR] pub yaw_rate");
         return false;
     }
-    Serial.println("[INIT] pub yaw_rate created");
+    DEBUG_PRINTLN("[INIT] pub yaw_rate created");
 
     if (rclc_publisher_init_default(&pub_yaw_kf, &node,
                                     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32),
                                     TOPIC_YAW_KF) != RCL_RET_OK)
     {
-        Serial.println("[ERR] pub yaw_kf");
+        DEBUG_PRINTLN("[ERR] pub yaw_kf");
         return false;
     }
-    Serial.println("[INIT] pub yaw_kf created");
+    DEBUG_PRINTLN("[INIT] pub yaw_kf created");
 
     if (rclc_publisher_init_default(&pub_gyro_bias, &node,
                                     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32),
                                     TOPIC_GYRO_BIAS) != RCL_RET_OK)
     {
-        Serial.println("[ERR] pub gyro_bias");
+        DEBUG_PRINTLN("[ERR] pub gyro_bias");
         return false;
     }
-    Serial.println("[INIT] pub gyro_bias created");
+    DEBUG_PRINTLN("[INIT] pub gyro_bias created");
 
     // Subscriber
     if (rclc_subscription_init_default(&sub_cmd_vel, &node,
                                        ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
                                        TOPIC_CMD_VEL) != RCL_RET_OK)
     {
-        Serial.println("[ERR] sub cmd_vel");
+        DEBUG_PRINTLN("[ERR] sub cmd_vel");
         return false;
     }
-    Serial.println("[INIT] sub cmd_vel created");
+    DEBUG_PRINTLN("[INIT] sub cmd_vel created");
 
     // Timer
     const uint32_t CTRL_MS = 20;
     if (rclc_timer_init_default(&timer_ctrl, &support, RCL_MS_TO_NS(CTRL_MS), on_timer) != RCL_RET_OK)
     {
-        Serial.println("[ERR] timer init");
+        DEBUG_PRINTLN("[ERR] timer init");
         return false;
     }
-    Serial.println("[INIT] timer 20ms created");
+    DEBUG_PRINTLN("[INIT] timer 20ms created");
 
     // Executor
     executor = rclc_executor_get_zero_initialized_executor();
-    if (rclc_executor_init(&executor, &support.context, 2 /* 1 sub + 1 timer */, &allocator) != RCL_RET_OK)
+    if (rclc_executor_init(&executor, &support.context, 2, &allocator) != RCL_RET_OK)
     {
-        Serial.println("[ERR] executor init");
+        DEBUG_PRINTLN("[ERR] executor init");
         return false;
     }
     rclc_executor_add_timer(&executor, &timer_ctrl);
     rclc_executor_add_subscription(&executor, &sub_cmd_vel, &msg_cmd_vel, on_cmd_vel, ON_NEW_DATA);
-    Serial.println("[INIT] executor ready");
+    DEBUG_PRINTLN("[INIT] executor ready");
 
     // Initial time sync
     syncTime();
 
-    Serial.println("[INIT] micro-ROS entities created");
+    DEBUG_PRINTLN("[INIT] micro-ROS entities created");
     return true;
 }
 
@@ -535,7 +562,7 @@ static bool destroyEntities()
     rcl_node_fini(&node);
     rclc_support_fini(&support);
 
-    Serial.println("[CLEAN] micro-ROS entities destroyed");
+    DEBUG_PRINTLN("[CLEAN] micro-ROS entities destroyed");
     return true;
 }
 
@@ -546,18 +573,15 @@ static void syncTime()
     unsigned long now_ms = millis();
     unsigned long long agent_ms = rmw_uros_epoch_millis();
     time_offset_ms = (agent_ms > 0ULL) ? (agent_ms - now_ms) : 0ULL;
-    Serial.printf("[TIME] agent_ms=%llu, mcu_ms=%lu, offset=%llu\n",
-                  agent_ms, now_ms, time_offset_ms);
+    DEBUG_PRINTF("[TIME] agent_ms=%llu, mcu_ms=%lu, offset=%llu\n",
+                 agent_ms, now_ms, time_offset_ms);
 }
 
 static void rclErrorLoop()
 {
-    Serial.println("[RCL] Fatal error -> restart");
+    DEBUG_PRINTLN("[RCL] Fatal error -> restart");
     delay(200);
     ESP.restart();
 }
 
-// ==========================================================================
-// End of file
-// ==========================================================================
 #endif // Node1

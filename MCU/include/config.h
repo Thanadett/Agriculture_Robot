@@ -18,11 +18,11 @@ static constexpr bool INVERT_RR = false;
 #define LR_IN1 27 // Left  Rear  IN1
 #define LR_IN2 26 // Left  Rear  IN2
 
-#define RF_IN1 12 // Right Front IN1
-#define RF_IN2 14 // Right Front IN2
+#define RF_IN1 14 // Right Front IN1
+#define RF_IN2 12 // Right Front IN2
 
-#define RR_IN1 25 // Right Rear  IN1
-#define RR_IN2 33 // Right Rear  IN2
+#define RR_IN1 33 // Right Rear  IN1
+#define RR_IN2 25 // Right Rear  IN2
 
 // ---------------- LEDC PWM ----------------
 static constexpr int PWM_FREQ_HZ = 20000; // 20kHz เงียบ
@@ -91,6 +91,3 @@ static constexpr float BETA_MADGWICK = 0.08f;     // ค่ากำกับฟ
 // Accel: ±2g, Gyro: ±250 dps
 static constexpr float ACCEL_SENS_2G = 16384.0f; // LSB/g
 static constexpr float GYRO_SENS_250 = 131.0f;   // LSB/(deg/s)
-
-// ============================ IMU/KF/PID and fast-loop state ============================
-static PIDRate g_pid_wz(0.6f, 0.0f, 0.02f, -0.6f, 0.6f, -0.3f, 0.3f, 10.0f);

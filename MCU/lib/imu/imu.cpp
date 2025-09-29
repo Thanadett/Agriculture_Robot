@@ -72,11 +72,11 @@ void IMU_MPU6050::calibrate(uint32_t ms)
     gyro_by_ = gy;
     gyro_bz_ = gz;
 
-    Serial.printf("[CAL] accel_bias [m/s^2]= %.3f %.3f %.3f\n",
-                  accel_bx_, accel_by_, accel_bz_);
-    Serial.printf("[CAL] gyro_bias  [rad/s] = %.5f %.5f %.5f\n",
-                  gyro_bx_, gyro_by_, gyro_bz_);
-    Serial.println(F("[CAL] Done"));
+    // Serial.printf("[CAL] accel_bias [m/s^2]= %.3f %.3f %.3f\n",
+    //               accel_bx_, accel_by_, accel_bz_);
+    // Serial.printf("[CAL] gyro_bias  [rad/s] = %.5f %.5f %.5f\n",
+    //               gyro_bx_, gyro_by_, gyro_bz_);
+    // Serial.println(F("[CAL] Done"));
 }
 
 void IMU_MPU6050::update()
@@ -138,9 +138,9 @@ void IMU_MPU6050::printDebug(uint32_t print_ms)
     if (millis() - last_print_ < print_ms)
         return;
     last_print_ = millis();
-    Serial.printf("Pitch: % .2f  Roll: % .2f  Yaw: % .2f\n",
-                  pitch_deg, roll_deg, yaw_deg);
-    Serial.printf("YawRate(body):  % .3f deg/s | YawRate(world): % .3f deg/s\n\n",
-                  yaw_rate_body_rad * 180.0f / PI,
-                  yaw_rate_world_rad * 180.0f / PI);
+    // Serial.printf("Pitch: % .2f  Roll: % .2f  Yaw: % .2f\n",
+    //               pitch_deg, roll_deg, yaw_deg);
+    // Serial.printf("YawRate(body):  % .3f deg/s | YawRate(world): % .3f deg/s\n\n",
+    //               yaw_rate_body_rad * 180.0f / PI,
+    //               yaw_rate_world_rad * 180.0f / PI);
 }
