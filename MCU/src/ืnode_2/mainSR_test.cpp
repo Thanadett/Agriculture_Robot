@@ -16,8 +16,11 @@ void setup()
   BTN_handlers servo_h;
   servo_h.onA = onBtnA;
   servo_h.onB = onBtnB;
-  servo_h.onX = onBtnX;
+  // servo_h.onX = onBtnX;
   servo_h.onY = onBtnY;
+  servo_h.onL = onBtnL;
+  servo_h.onR = onBtnR;
+
   // callbacks for button A/B/X
   button_set_handlers(servo_h);
 

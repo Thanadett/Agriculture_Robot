@@ -92,6 +92,8 @@ struct BTN_handlers {
   BTN_handler onB = nullptr;
   BTN_handler onX = nullptr;
   BTN_handler onY = nullptr;
+  BTN_handler onL = nullptr;
+  BTN_handler onR = nullptr;
 };
 
 // helper: case-insensitive startsWith
@@ -113,3 +115,5 @@ void onBtnA(bool down, UnifiedServo& servo);
 void onBtnB(bool down, UnifiedServo& servo);
 void onBtnX(bool down, UnifiedServo& servo);
 void onBtnY(bool down, UnifiedServo& servo); 
+void onBtnL(bool down, UnifiedServo& servo);
+void onBtnR(bool down, UnifiedServo& servo);

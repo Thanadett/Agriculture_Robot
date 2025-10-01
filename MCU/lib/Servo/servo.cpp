@@ -129,11 +129,13 @@ bool button_handle_line(const String &raw)
   Serial.printf("[ESP32] RX: %s\n", line.c_str());
 
   // รองรับ A=DOWN/UP หรือ A=1/0
-  String tokA, tokB, tokX, tokY;
+  String tokA, tokB, tokX, tokY, tokL, tokR;
   bool hasA = _parseTokenAfterEquals(line, "A=", tokA);
   bool hasB = _parseTokenAfterEquals(line, "B=", tokB);
   bool hasX = _parseTokenAfterEquals(line, "X=", tokX);
   bool haxY = _parseTokenAfterEquals(line, "Y=", tokY);
+  bool hasL = _parseTokenAfterEquals(line, "L=", tokL);
+  bool hasR = _parseTokenAfterEquals(line, "R=", tokR);
 
   auto toDown = [](const String &t) -> bool
   {
@@ -149,6 +151,10 @@ bool button_handle_line(const String &raw)
     g_handlers.onX(toDown(tokX), MG996R); // 180
   if (haxY && g_handlers.onY)
     g_handlers.onY(toDown(tokY), MG996R_360); // 360 | feed
+  if (hasL && g_handlers.onL)
+    g_handlers.onA(toDown(tokL), MG996R_360); 
+  if (hasR && g_handlers.onR)
+    g_handlers.onB(toDown(tokR), MG996R_360); // 360
 
   // (จะพิมพ์ ACK ก็ได้)
   // Serial.printf("ACK %s\n", line.c_str());
@@ -178,7 +184,7 @@ void button_serial_poll()
 }
 
 // ---------- button control ---------------
-void onBtnX(bool down, UnifiedServo &servoType)
+void onBtnX(bool down, UnifiedServo &servoType)// not used
 {
   if (servoType.kind() == ServoKind::Positional180)
   {
@@ -194,14 +200,34 @@ void onBtnX(bool down, UnifiedServo &servoType)
     }
   }
 }
-void onBtnB(bool down, UnifiedServo &servoType)
+
+
+void onBtnA(bool down, UnifiedServo &servoType)//manual control ->
 {
   if (servoType.kind() == ServoKind::Continuous360)
   {
     if (down)
     {
-      Serial.println("forward");
-      servoType.setSpeedPercent(+100); // forward
+      Serial.println("manual 1");
+      servoType.setSpeedPercent(+40);
+    }
+    else
+    {
+      Serial.println("stop");
+      servoType.goCenterOrStop(); // stop
+    }
+  }
+}
+
+
+void onBtnB(bool down, UnifiedServo &servoType)//manual control <-
+{
+  if (servoType.kind() == ServoKind::Continuous360)
+  {
+    if (down)
+    {
+      Serial.println("manual 2");
+      servoType.setSpeedPercent(-40); // forward
     }
     else
     {
@@ -229,19 +255,36 @@ void onBtnY(bool down, UnifiedServo &servoType)
   }
 }
 
-void onBtnA(bool down, UnifiedServo &servoType)
+void onBtnL(bool down, UnifiedServo &servoType)
 {
-  if (servoType.kind() == ServoKind::Continuous360)
+  if (servoType.kind() == ServoKind::Positional180)
   {
     if (down)
     {
-      Serial.println("manual");
-      servoType.setSpeedPercent(+40);
+      Serial.println("close");
+      servoType.setAngleDeg(170); 
     }
     else
     {
-      Serial.println("stop");
-      servoType.goCenterOrStop(); // stop
+      servoType.setAngleDeg(90); 
     }
   }
 }
+
+void onBtnR(bool down, UnifiedServo &servoType)
+{
+  if (servoType.kind() == ServoKind::Positional180)
+  {
+    if (down)
+    {
+      Serial.println("open");
+      servoType.setAngleDeg(20); 
+    }
+    else
+    {
+      servoType.setAngleDeg(90); 
+    }
+  }
+}
+
+

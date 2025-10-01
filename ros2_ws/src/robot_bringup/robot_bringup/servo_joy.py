@@ -18,15 +18,22 @@ class JoystickButtons(Node):
         self.declare_parameter('btn_b', 1)  # Xbox: B=1
         # self.declare_parameter('btn_x', 2)  # Xbox: X=2
         self.declare_parameter('btn_y', 3)  # Xbox: Y=3
-        self.declare_parameter('debounce_ms', 20)  # กันสั่นเล็กน้อย
+
+        self.declare_parameter('axis_index', 6)     # Xbox D-pad horizontal = 6
+        self.declare_parameter('threshold', 0.5)    # deadzone threshold
+        self.declare_parameter('debounce_ms', 20) # small debounce
+
 
         p = lambda k: self.get_parameter(k).get_parameter_value()
         joy_topic = p('joy_topic').string_value
         servo_topic = p('servo_cmd_topic').string_value
         self.idx_a = int(p('btn_a').integer_value)
         self.idx_b = int(p('btn_b').integer_value)
-        self.idx_x = int(p('btn_x').integer_value)
+        # self.idx_x = int(p('btn_x').integer_value)
         self.idx_y = int(p('btn_y').integer_value)
+
+        self.axis_index  = int(p('axis_index').integer_value)
+        self.threshold   = float(p('threshold').double_value)
         self.debounce_ms = int(p('debounce_ms').integer_value)
 
         # ---- Pub/Sub ----
@@ -42,8 +49,11 @@ class JoystickButtons(Node):
         # ---- State ----
         self.prev_a = 0
         self.prev_b = 0
-        self.prev_x = 0
+        # self.prev_x = 0
         self.prev_y = 0
+
+        self.prev_left = 0
+        self.prev_right = 0
         self.last_change_ms = 0.0
 
         self.get_logger().info(f'Buttons node started: joy={joy_topic} -> servo_cmd={servo_topic}')
@@ -63,7 +73,7 @@ class JoystickButtons(Node):
 
         a = self._btn(msg, self.idx_a)
         b = self._btn(msg, self.idx_b)
-        x = self._btn(msg, self.idx_x)
+        # x = self._btn(msg, self.idx_x)
         y = self._btn(msg, self.idx_y)
 
         if a != self.prev_a:
@@ -76,14 +86,32 @@ class JoystickButtons(Node):
             self.prev_b = b
             self.last_change_ms = now_ms
 
-        if x != self.prev_x:
-            self._emit(f'BTN X={"DOWN" if x else "UP"}')
-            self.prev_x = x
-            self.last_change_ms = now_ms
+        # if x != self.prev_x:
+        #     self._emit(f'BTN X={"DOWN" if x else "UP"}')
+        #     self.prev_x = x
+        #     self.last_change_ms = now_ms
 
         if y != self.prev_y:
             self._emit(f'BTN Y={"DOWN" if y else "UP"}')
             self.prev_y = y
+            self.last_change_ms = now_ms
+
+        val = 0.0
+        if 0 <= self.axis_index < len(msg.axes):
+            val = float(msg.axes[self.axis_index])
+
+        # กด UP ถ้าแกนเป็น 1 (ดันขึ้น) / กด DOWN ถ้า -1 (ดันลง)
+        left = 1 if val <= -self.threshold else 0
+        right = 1 if val >= self.threshold else 0
+
+        if left != self.prev_left:
+            self._emit(f'BTN L={"DOWN" if left else "UP"}')
+            self.prev_left = left
+            self.last_change_ms = now_ms
+
+        if right != self.prev_right:
+            self._emit(f'BTN R={"DOWN" if right else "UP"}')
+            self.prev_right = right
             self.last_change_ms = now_ms
 
 
