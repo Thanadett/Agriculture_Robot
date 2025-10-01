@@ -52,8 +52,8 @@ void QuadEncoderReader::update()
     long d = cur - last_counts_[i];
     last_counts_[i] = cur;
 
-    total_dist_m_[i] += fabsf(((float)d / ppr) * C); // accumulate absolute distance
-    pos_rad_[i] = ((float)cur / ppr) * two_pi;       // signed angle
+    total_dist_m_[i] += ((float)d / ppr) * C;
+    pos_rad_[i] = ((float)cur / ppr) * two_pi; // signed angle
     float rev_dt = ((float)d / ppr) / dt;
     vel_rad_s_[i] = rev_dt * two_pi; // signed angular velocity
   }

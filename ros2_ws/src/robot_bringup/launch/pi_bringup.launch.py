@@ -120,8 +120,8 @@ def generate_launch_description():
 
         # ================= Camera Stream (Flask) =================
         # Camera devices
-        DeclareLaunchArgument('video_device1', default_value='0'),
-        DeclareLaunchArgument('video_device2', default_value='2'),
+        DeclareLaunchArgument('video_device1', default_value='2'),
+        DeclareLaunchArgument('video_device2', default_value='0'),
         DeclareLaunchArgument('width1',   default_value='648'),
         DeclareLaunchArgument('height1',  default_value='432'),
         DeclareLaunchArgument('width2',   default_value='432'),

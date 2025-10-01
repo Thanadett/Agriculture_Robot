@@ -32,17 +32,16 @@
 #endif
 
 #ifndef USE_INNER_PID
-#define USE_INNER_PID 0
+#define USE_INNER_PID 1
 #endif
 
-// ใช้ "relative topics" ตาม best-practice ของ micro-ROS
 #define TOPIC_WHEEL_TICKS "wheel_ticks"
 #define TOPIC_HEARTBEAT "robot_heartbeat"
 #define TOPIC_CMD_VEL "cmd_vel"
 #define TOPIC_YAW_RATE "yaw_rate"
 #define TOPIC_YAW_KF "yaw_kf"
 #define TOPIC_GYRO_BIAS "gyro_bias"
-
+#define TOPIC_PID_DEBUG "pid_debug"
 #define TOPIC_JOY_RESET "joy_reset"
 
 // ============================ Conditional Debug Macros ============================
@@ -131,6 +130,7 @@ static std_msgs__msg__Bool msg_joy_reset;
 static rcl_publisher_t pub_yaw_rate;
 static rcl_publisher_t pub_yaw_kf;
 static rcl_publisher_t pub_gyro_bias;
+static rcl_publisher_t pub_pid_debug;
 
 // Messages
 static std_msgs__msg__Float32MultiArray msg_ticks;
@@ -140,6 +140,7 @@ static geometry_msgs__msg__Twist msg_cmd_vel;
 static std_msgs__msg__Float32 msg_yaw_rate;
 static std_msgs__msg__Float32 msg_yaw_kf;
 static std_msgs__msg__Float32 msg_gyro_bias;
+static std_msgs__msg__Float32MultiArray msg_pid_debug;
 
 // Time sync with agent
 static unsigned long long time_offset_ms = 0;
@@ -264,10 +265,11 @@ static inline void fast_loop_200hz()
     // 4) Inner PID rate
     const float u = g_pid_wz.step(g_W_cmd, wz_world, dt);
     const float W_eff = g_W_cmd + u;
+
     cmdVW_to_targets(g_V_cmd, W_eff);
 #endif
 
-    // 5) Debug publish ~25 Hz
+    // 5) Debug publish ~25-50 Hz
     static uint32_t dbg_last_ms = 0;
     const uint32_t now_ms = millis();
     if (g_state == AGENT_CONNECTED && (now_ms - dbg_last_ms) >= 40U)
@@ -278,6 +280,19 @@ static inline void fast_loop_200hz()
         RCSOFTCHECK(rcl_publish(&pub_yaw_rate, &msg_yaw_rate, NULL));
         RCSOFTCHECK(rcl_publish(&pub_yaw_kf, &msg_yaw_kf, NULL));
         RCSOFTCHECK(rcl_publish(&pub_gyro_bias, &msg_gyro_bias, NULL));
+
+#if USE_INNER_PID
+        if (msg_pid_debug.data.size >= 5)
+        {
+            msg_pid_debug.data.data[0] = g_W_cmd;  // setpoint (rad/s)
+            msg_pid_debug.data.data[1] = wz_world; // actual (rad/s)
+            msg_pid_debug.data.data[2] = u;        // PID correction (rad/s)
+            msg_pid_debug.data.data[3] = W_eff;    // effective command (rad/s)
+            msg_pid_debug.data.data[4] = g_V_cmd;  // linear velocity (m/s)
+            RCSOFTCHECK(rcl_publish(&pub_pid_debug, &msg_pid_debug, NULL));
+        }
+#endif
+
         dbg_last_ms = now_ms;
     }
 }
@@ -317,20 +332,25 @@ void setup()
     g_kf.setNoise(1e-5f, 1e-6f, 1e-3f);
     g_kf.init(0.0f, 0.0f);
 
+// ========================================== PID setup ==========================================
 #if USE_INNER_PID
-    g_pid_wz.setGains(0.6f, 0.0f, 0.02f);
+    g_pid_wz.setGains(0.6f, 0.0f, 0.0f); // เพิ่ม Kp และเปิด Ki
     g_pid_wz.setIClamp(-0.3f, 0.3f);
-    g_pid_wz.setOutputClamp(-0.6f, 0.6f);
+    g_pid_wz.setOutputClamp(-1.0f, 1.0f); // เพิ่ม range
     g_pid_wz.setDLpf(10.0f);
+    DEBUG_PRINTLN("[PID] Inner rate controller ENABLED");
+    DEBUG_PRINTF("[PID] Gains: Kp=1.2, Ki=0.1, Kd=0.03, Out=[-1.0,1.0]\n");
+#else
+    DEBUG_PRINTLN("[PID] Inner rate controller DISABLED (open-loop)");
 #endif
 
     syncTime();
     last_time_sync_ms = millis();
 
-    DEBUG_PRINTF("[INFO] Domain: %d, Topics: %s, %s, %s, %s, %s, %s\n",
+    DEBUG_PRINTF("[INFO] Domain: %d, Topics: %s, %s, %s, %s, %s, %s, %s\n",
                  ROS_DOMAIN_ID_MCU,
                  TOPIC_WHEEL_TICKS, TOPIC_HEARTBEAT, TOPIC_CMD_VEL,
-                 TOPIC_YAW_RATE, TOPIC_YAW_KF, TOPIC_GYRO_BIAS);
+                 TOPIC_YAW_RATE, TOPIC_YAW_KF, TOPIC_GYRO_BIAS, TOPIC_PID_DEBUG);
 }
 
 // ============================ Main loop ============================
@@ -419,7 +439,14 @@ static void on_cmd_vel(const void *msgin)
     g_V_cmd = V;
     g_W_cmd = W;
 
+#if USE_INNER_PID
+    // ถ้าเปิด PID ให้ fast_loop จัดการส่งคำสั่ง (ไม่ส่งที่นี่)
+    // fast_loop จะแก้ W ด้วย PID แล้วส่งไปเอง
+#else
+    // ถ้าปิด PID ส่งค่าเดิมไปเลย (open-loop)
     cmdVW_to_targets(V, W);
+#endif
+
     last_cmd_ms = millis();
 }
 
@@ -539,6 +566,19 @@ static bool createEntities()
     }
     DEBUG_PRINTLN("[INIT] pub gyro_bias created");
 
+    // พิ่ม PID debug publisher
+    if (rclc_publisher_init_default(&pub_pid_debug, &node,
+                                    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
+                                    TOPIC_PID_DEBUG) != RCL_RET_OK)
+    {
+        DEBUG_PRINTLN("[ERR] pub pid_debug");
+        return false;
+    }
+    rosidl_runtime_c__float32__Sequence__init(&msg_pid_debug.data, 5);
+    for (int i = 0; i < 5; i++)
+        msg_pid_debug.data.data[i] = 0.0f;
+    DEBUG_PRINTLN("[INIT] pub pid_debug created");
+
     // Subscriber
     if (rclc_subscription_init_default(&sub_cmd_vel, &node,
                                        ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
@@ -549,7 +589,6 @@ static bool createEntities()
     }
     DEBUG_PRINTLN("[INIT] sub cmd_vel created");
 
-    // หลังจากสร้าง sub_cmd_vel เสร็จ ให้เพิ่ม:
     if (rclc_subscription_init_default(&sub_joy_reset, &node,
                                        ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
                                        TOPIC_JOY_RESET) != RCL_RET_OK)
@@ -593,6 +632,7 @@ static bool destroyEntities()
     rcl_subscription_fini(&sub_cmd_vel, &node);
     rcl_subscription_fini(&sub_joy_reset, &node);
 
+    rcl_publisher_fini(&pub_pid_debug, &node); // เพิ่ม cleanup
     rcl_publisher_fini(&pub_gyro_bias, &node);
     rcl_publisher_fini(&pub_yaw_kf, &node);
     rcl_publisher_fini(&pub_yaw_rate, &node);
@@ -601,6 +641,9 @@ static bool destroyEntities()
 
     if (msg_ticks.data.data)
         rosidl_runtime_c__float__Sequence__fini(&msg_ticks.data);
+
+    if (msg_pid_debug.data.data) // เพิ่ม cleanup
+        rosidl_runtime_c__float__Sequence__fini(&msg_pid_debug.data);
 
     rcl_timer_fini(&timer_ctrl);
     rclc_executor_fini(&executor);

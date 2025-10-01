@@ -4,6 +4,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from std_msgs.msg import Int32MultiArray, Float32  # <- เพิ่ม Float32
+from std_msgs.msg import Float32MultiArray
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import TransformStamped
 from builtin_interfaces.msg import Time
@@ -64,7 +65,7 @@ class BaseNode(Node):
 
         # ---------------- I/O ----------------
         self.sub_ticks = self.create_subscription(
-            Int32MultiArray, self.ticks_topic, self.cb_ticks, qos
+            Float32MultiArray, self.ticks_topic, self.cb_ticks, qos
         )
         # New: subscribe yaw_kf & yaw_rate
         self.sub_yaw_kf = self.create_subscription(
@@ -110,7 +111,7 @@ class BaseNode(Node):
         self.have_wz = True
 
     # -------- main ticks callback --------
-    def cb_ticks(self, msg: Int32MultiArray):
+    def cb_ticks(self, msg:Float32MultiArray):
         data = list(msg.data)
         if len(data) != 4:
             self.get_logger().warn(
