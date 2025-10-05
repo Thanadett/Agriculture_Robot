@@ -25,8 +25,8 @@ def generate_launch_description():
         DeclareLaunchArgument('deadzone', default_value='0.12'),
 
         # ใช้หน่วยจริง (เริ่มให้ปลอดภัยก่อน ค่อยปรับเพิ่มได้)
-        DeclareLaunchArgument('max_linear', default_value='1.0'),    # m/s
-        DeclareLaunchArgument('max_angular', default_value='1.50'),   # rad/s
+        DeclareLaunchArgument('max_linear', default_value='1.5'),    # m/s
+        DeclareLaunchArgument('max_angular', default_value='3.0'),   # rad/s
         DeclareLaunchArgument('ramp_rate_linear',
                               default_value='1.5'),   # m/s^2
         DeclareLaunchArgument('ramp_rate_angular',

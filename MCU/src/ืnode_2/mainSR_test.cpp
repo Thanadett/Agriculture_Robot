@@ -34,9 +34,9 @@ void setup()
   MG996R.begin();
 
   //======================== debug info ========================
-  int ch_1 = TD8120MG.begin();
-  int ch_2 = MG996R_360.begin();
-  int ch_3 = MG996R.begin();
+  // int ch_1 = TD8120MG.begin();
+  // int ch_2 = MG996R_360.begin();
+  // int ch_3 = MG996R.begin();
   // if (ch_3 >= 0)
   //   Serial.printf("MG996R attached on channel %d (pin=%d)\n", ch_3, MG996R.pin());
   // else
@@ -55,7 +55,7 @@ void setup()
   // - 360°: stop (neutral)
   TD8120MG.goCenterOrStop();
   MG996R_360.goCenterOrStop();
-  MG996R.setAngleDeg(0); // start at 0 degree
+  // MG996R.setAngleDeg(170); 
   Nema17.begin();
 }
 
@@ -66,6 +66,14 @@ void loop()
   // Nema17.rotateContinuous(true);  // เริ่มหมุนต่อเนื่อง
   // stepper_tick(Nema17);  //use to trig step continous in loop (use with digitalw)
   Nema17.tick(); // call in loop to make stepper move (use with accelstepper lib)
+  // MG996R_360.setSpeedPercent(+40); delay(800);
+  // MG996R_360.goCenterOrStop();     delay(600);
+  // MG996R_360.setSpeedPercent(-40); delay(800);
+  // MG996R_360.goCenterOrStop();     delay(600);
+
+  // MG996R.setAngleDeg(170);  delay(600);
+  // MG996R.setAngleDeg(90); delay(600);
+  // MG996R.setAngleDeg(20);  delay(600);
   // delay(5);
   // ===== 180° demo: absolute angles =====
   // MG996R.setAngleDeg(0);

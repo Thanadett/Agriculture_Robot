@@ -142,19 +142,18 @@ bool button_handle_line(const String &raw)
     return t.equalsIgnoreCase("DOWN") || t == "1";
   };
 
-  // TD8120MG => testing | change to MG996R_360 for final
   if (hasA && g_handlers.onA)
-    g_handlers.onA(toDown(tokA), MG996R_360); // 360 | feed
+    g_handlers.onA(toDown(tokA), MG996R_360); // 360 feed manual 1
   if (hasB && g_handlers.onB)
-    g_handlers.onB(toDown(tokB), TD8120MG); // 360
-  if (hasX && g_handlers.onX)
-    g_handlers.onX(toDown(tokX), MG996R); // 180
+    g_handlers.onB(toDown(tokB), MG996R_360); // 360 feed manual 2
+  // if (hasX && g_handlers.onX)
+  //   g_handlers.onX(toDown(tokX), MG996R); // 180
   if (haxY && g_handlers.onY)
-    g_handlers.onY(toDown(tokY), MG996R_360); // 360 | feed
+    g_handlers.onY(toDown(tokY), MG996R_360); // 360 | feed auto
   if (hasL && g_handlers.onL)
-    g_handlers.onA(toDown(tokL), MG996R_360); 
+    g_handlers.onL(toDown(tokL), MG996R); // 180 | claw close
   if (hasR && g_handlers.onR)
-    g_handlers.onB(toDown(tokR), MG996R_360); // 360
+    g_handlers.onR(toDown(tokR), MG996R); // 180 | claw open
 
   // (จะพิมพ์ ACK ก็ได้)
   // Serial.printf("ACK %s\n", line.c_str());
@@ -184,22 +183,22 @@ void button_serial_poll()
 }
 
 // ---------- button control ---------------
-void onBtnX(bool down, UnifiedServo &servoType)// not used
-{
-  if (servoType.kind() == ServoKind::Positional180)
-  {
-    if (down)
-    {
-      Serial.println("To 180");
-      servoType.setAngleDeg(180);
-    }
-    else
-    {
-      Serial.println("To 0");
-      servoType.setAngleDeg(0);
-    }
-  }
-}
+// void onBtnX(bool down, UnifiedServo &servoType)// not used
+// {
+//   if (servoType.kind() == ServoKind::Positional180)
+//   {
+//     if (down)
+//     {
+//       Serial.println("To 180");
+//       servoType.setAngleDeg(180);
+//     }
+//     else
+//     {
+//       Serial.println("To 0");
+//       servoType.setAngleDeg(0);
+//     }
+//   }
+// }
 
 
 void onBtnA(bool down, UnifiedServo &servoType)//manual control ->
@@ -209,7 +208,7 @@ void onBtnA(bool down, UnifiedServo &servoType)//manual control ->
     if (down)
     {
       Serial.println("manual 1");
-      servoType.setSpeedPercent(+40);
+      servoType.setSpeedPercent(+18);
     }
     else
     {
@@ -227,7 +226,7 @@ void onBtnB(bool down, UnifiedServo &servoType)//manual control <-
     if (down)
     {
       Serial.println("manual 2");
-      servoType.setSpeedPercent(-40); // forward
+      servoType.setSpeedPercent(-18); // forward
     }
     else
     {
@@ -243,8 +242,8 @@ void onBtnY(bool down, UnifiedServo &servoType)
     if (down)
     {
       Serial.println("forward");
-      servoType.setSpeedPercent(+33); // forward //works: +30, 1200
-      delay(1200);
+      servoType.setSpeedPercent(-18); 
+      delay(500);
       Serial.println("Deployed 1 sapling");
     }
     else
@@ -261,12 +260,12 @@ void onBtnL(bool down, UnifiedServo &servoType)
   {
     if (down)
     {
-      Serial.println("close");
-      servoType.setAngleDeg(170); 
+      Serial.println("open");
+      servoType.setAngleDeg(100); 
     }
     else
     {
-      servoType.setAngleDeg(90); 
+      return;
     }
   }
 }
@@ -277,12 +276,12 @@ void onBtnR(bool down, UnifiedServo &servoType)
   {
     if (down)
     {
-      Serial.println("open");
-      servoType.setAngleDeg(20); 
+      Serial.println("close");
+      servoType.setAngleDeg(170); 
     }
     else
     {
-      servoType.setAngleDeg(90); 
+      return;
     }
   }
 }
