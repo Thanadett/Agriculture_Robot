@@ -34,6 +34,8 @@ class JoystickButtons(Node):
         self.declare_parameter('axis_rt', 5)   # RT
         # ออปชัน ส่งค่า numeric เพิ่มเติม
         self.declare_parameter('publish_numeric', True)
+        self.declare_parameter('change_threshold_pct', 2)  # emit when changed >= 2%
+
           # Raw range mapping (ค่าแกนตอน "ปล่อย" และ "กดสุด")
         # Xbox บน Linux: ปล่อย ≈ +1.0, กดสุด ≈ -1.0
         self.declare_parameter('lt_released_raw', 1.0)
@@ -88,9 +90,7 @@ class JoystickButtons(Node):
             self.pub_lt_pct = None
             self.pub_rt_pct = None
 
-        self.sub_joy = self.create_subscription(
-            Joy, joy_topic, self.cb_joy, qos_profile=qos_profile_sensor_data
-        )
+    
         # ---- State ----
         self.prev_a = 0
         self.prev_b = 0
@@ -195,12 +195,12 @@ class JoystickButtons(Node):
         # ส่งออกเมื่อเปลี่ยนเกิน threshold
         changed = False
         if abs(self.lt_pct - self.last_sent_lt) >= self.change_threshold_pct:
-            self._emit_text(f'BTN LT={self.lt_pct}')
+            self._emit(f'BTN LT={self.lt_pct}')
             self.last_sent_lt = self.lt_pct
             changed = True
 
         if abs(self.rt_pct - self.last_sent_rt) >= self.change_threshold_pct:
-            self._emit_text(f'BTN RT={self.rt_pct}')
+            self._emit(f'BTN RT={self.rt_pct}')
             self.last_sent_rt = self.rt_pct
             changed = True
 
