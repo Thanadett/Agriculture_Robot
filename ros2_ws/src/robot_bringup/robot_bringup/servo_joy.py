@@ -6,17 +6,17 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, qos_profile_
 from sensor_msgs.msg import Joy
 from std_msgs.msg import String, Int32
 
+# === Helpers for triggers ===
 def clamp(x, lo, hi):
     return lo if x < lo else (hi if x > hi else x)
 
 def map_raw_to_percent(raw: float, released_raw: float, pressed_raw: float) -> int:
-    # แปลงค่าดิบของแกนให้เป็น 0..100 โดย 0=ปล่อย, 100=กดสุด
-    # handle กรณี released_raw == pressed_raw
+    # 0 = released, 100 = fully pressed
     if abs(pressed_raw - released_raw) < 1e-6:
         return 0
     t = (raw - released_raw) / (pressed_raw - released_raw)
-    pct = int(round(clamp(t * 100.0, 0.0, 100.0)))
-    return pct
+    return int(round(clamp(t * 100.0, 0.0, 100.0)))
+
 
 class JoystickButtons(Node):
     def __init__(self):
@@ -35,6 +35,7 @@ class JoystickButtons(Node):
         # ออปชัน ส่งค่า numeric เพิ่มเติม
         self.declare_parameter('publish_numeric', True)
         self.declare_parameter('change_threshold_pct', 2)  # emit when changed >= 2%
+        self.declare_parameter('ema_alpha', 0.2)   # EMA smoothing factor for triggers
 
           # Raw range mapping (ค่าแกนตอน "ปล่อย" และ "กดสุด")
         # Xbox บน Linux: ปล่อย ≈ +1.0, กดสุด ≈ -1.0
@@ -42,7 +43,6 @@ class JoystickButtons(Node):
         self.declare_parameter('lt_pressed_raw', -1.0)
         self.declare_parameter('rt_released_raw', 1.0)
         self.declare_parameter('rt_pressed_raw', -1.0)
-        self.declare_parameter('ema_alpha', 0.2)   # EMA smoothing factor for triggers
         
         self.declare_parameter('axis_index', 6)     # Xbox D-pad horizontal = 6
         self.declare_parameter('threshold', 0.5)    # deadzone threshold
@@ -57,20 +57,22 @@ class JoystickButtons(Node):
         # self.idx_x = int(p('btn_x').integer_value)
         self.idx_y = int(p('btn_y').integer_value)
 
-        self.idx_lt = int(p('axis_lt').integer_value)
-        self.idx_rt = int(p('axis_rt').integer_value)
+        self.ax_lt = int(p('axis_lt').integer_value)
+        self.ax_rt = int(p('axis_rt').integer_value)
 
         self.lt_rel = float(p('lt_released_raw').double_value)
         self.lt_prs = float(p('lt_pressed_raw').double_value)
         self.rt_rel = float(p('rt_released_raw').double_value)
         self.rt_prs = float(p('rt_pressed_raw').double_value)
 
+        self.ema_alpha   = float(p('ema_alpha').double_value)
+        self.change_thr  = int(p('change_threshold_pct').integer_value)
+        self.publish_numeric = p('publish_numeric').bool_value
+
         self.axis_index  = int(p('axis_index').integer_value)
         self.threshold   = float(p('threshold').double_value)
         self.debounce_ms = int(p('debounce_ms').integer_value)
-        self.ema_alpha   = float(p('ema_alpha').double_value)
-        self.change_threshold_pct = int(p('change_threshold_pct').integer_value)
-        self.publish_numeric = p('publish_numeric').bool_value
+
 
         # ---- Pub/Sub ----
         qos = QoSProfile(
@@ -81,6 +83,7 @@ class JoystickButtons(Node):
         self.pub_servo = self.create_publisher(String, servo_topic, qos_profile=qos)
         self.sub_joy = self.create_subscription(Joy, joy_topic, self.cb_joy,
                                                 qos_profile=qos_profile_sensor_data)
+
 
         if self.publish_numeric:
             self.pub_lt_pct = self.create_publisher(Int32, '/lt_percent', qos_profile=qos)
@@ -96,8 +99,14 @@ class JoystickButtons(Node):
         # self.prev_x = 0
         self.prev_y = 0
 
-        self.last_sent_lt = 0
-        self.last_sent_rt = 0
+        # Trigger states
+        self.lt_target = 0          # เป้าหมาย (0..100) จาก cb_joy
+        self.rt_target = 0
+        self.lt_pct = 0             # ค่าหลังกรอง (EMA) ที่จะส่ง
+        self.rt_pct = 0
+        self.last_sent_lt = -1      # ค่าสุดท้ายที่ส่งไปแล้ว (ลดสแปม)
+        self.last_sent_rt = -1
+
 
         #D - pad
         self.prev_left = 0
@@ -177,36 +186,40 @@ class JoystickButtons(Node):
 
 
         # --- LT/RT analog → percent 0..100 ---
-        lt_raw = msg.axes[self.idx_lt] if 0 <= self.idx_lt < len(msg.axes) else self.lt_rel
-        rt_raw = msg.axes[self.idx_rt] if 0 <= self.idx_rt < len(msg.axes) else self.rt_rel
+        # --- Read LT/RT raw axes and map to 0..100 ---
+        lt_raw = self._axis(msg, self.ax_lt)
+        rt_raw = self._axis(msg, self.ax_rt)
 
-        lt_pct_new = map_raw_to_percent(lt_raw, self.lt_rel, self.lt_prs)
-        rt_pct_new = map_raw_to_percent(rt_raw, self.rt_rel, self.rt_prs)
+        self.lt_target = map_raw_to_percent(lt_raw, self.lt_rel, self.lt_prs)
+        self.rt_target = map_raw_to_percent(rt_raw, self.rt_rel, self.rt_prs)
 
-        # EMA กันกระพือ
-        lt_pct_f = int(round(self._ema(self.lt_pct, lt_pct_new)))
-        rt_pct_f = int(round(self._ema(self.rt_pct, rt_pct_new)))
+        # --- Smooth LT/RT and publish as BTN XX=0..100 ---
+        a = max(0.0, min(1.0, self.ema_alpha))
+        if a <= 0.0:
+            self.lt_pct = int(round(self.lt_target))
+            self.rt_pct = int(round(self.rt_target))
+        else:
+            self.lt_pct = int(round((1.0 - a) * self.lt_pct + a * self.lt_target))
+            self.rt_pct = int(round((1.0 - a) * self.rt_pct + a * self.rt_target))
 
-        self.lt_pct = lt_pct_f
-        self.rt_pct = rt_pct_f
-        # ส่งออกเมื่อเปลี่ยนเกิน threshold
-        changed = False
-        if abs(self.lt_pct - self.last_sent_lt) >= self.change_threshold_pct:
-            self._emit(f'BTN LT={self.lt_pct}')
+        # ส่งเมื่อเปลี่ยนเกิน threshold (ลด spam)
+        sent_any = False
+        if abs(self.lt_pct - self.last_sent_lt) >= self.change_thr:
+            self.pub_servo.publish(String(data=f'BTN LT={self.lt_pct}'))
             self.last_sent_lt = self.lt_pct
-            changed = True
+            sent_any = True
 
-        if abs(self.rt_pct - self.last_sent_rt) >= self.change_threshold_pct:
-            self._emit(f'BTN RT={self.rt_pct}')
+        if abs(self.rt_pct - self.last_sent_rt) >= self.change_thr:
+            self.pub_servo.publish(String(data=f'BTN RT={self.rt_pct}'))
             self.last_sent_rt = self.rt_pct
-            changed = True
+            sent_any = True
 
-        # ส่งแบบตัวเลข (ถ้าเปิดใช้งาน)
-        if changed and self.publish_numeric:
-            self._emit_numeric(self.lt_pct, self.rt_pct)
-
-        if changed:
-            self.last_change_ms = now_ms
+        # numeric topics (optional)
+        if sent_any and self.publish_numeric:
+            if self.pub_lt_pct:
+                self.pub_lt_pct.publish(Int32(data=int(self.lt_pct)))
+            if self.pub_rt_pct:
+                self.pub_rt_pct.publish(Int32(data=int(self.rt_pct)))
 
 
 
