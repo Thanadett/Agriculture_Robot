@@ -14,12 +14,13 @@ void setup()
   sr2::register_stp(&Nema17); // stepper
 
   BTN_handlers servo_h;
-  servo_h.onA = onBtnA;
-  servo_h.onB = onBtnB;
+  //gripper change to new 
+  servo_h.onA = onBtnA; //manual camera =>
+  servo_h.onB = onBtnB; //manual camera <=
   // servo_h.onX = onBtnX;
-  servo_h.onY = onBtnY;
-  servo_h.onL = onBtnL;
-  servo_h.onR = onBtnR;
+  servo_h.onY = onBtnY; //sg90 45 degree turn
+  servo_h.onL = onBtnL; //360 servo disk ctrl by index 6
+  servo_h.onR = onBtnR; //
 
   // callbacks for button A/B/X
   button_set_handlers(servo_h);
@@ -32,6 +33,7 @@ void setup()
   TD8120MG.begin(); // Attach the servo on pin , set Hz and min/max pulse width
   MG996R_360.begin();
   MG996R.begin();
+  SG90_180.begin();
 
   //======================== debug info ========================
   // int ch_1 = TD8120MG.begin();
@@ -56,6 +58,8 @@ void setup()
   TD8120MG.goCenterOrStop();
   MG996R_360.goCenterOrStop();
   // MG996R.setAngleDeg(170); 
+  SG90_180.goCenterOrStop();
+  // stepper
   Nema17.begin();
 }
 

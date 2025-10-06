@@ -11,9 +11,10 @@
 // #define PIN_SERVO_360 0 //MG996R 360 continuous rotation servo
 // #define PIN_SERVO_180 2 //MG996R 180 standard servo
 // PWM pins of ESP32 
-constexpr int PIN__TD8120MG = 15;
-constexpr int PIN_MG996R_360 = 16; //MG996R 360 continuous rotation servo
-constexpr int PIN_MG996R = 2; //MG996R 180 standard servo
+constexpr int PIN__TD8120MG = 19;
+constexpr int PIN_MG996R_360 = 17; //MG996R 360 continuous rotation servo
+constexpr int PIN_MG996R = 18; //MG996R 180 standard servo
+constexpr int PIN_SG90_180 = 35; //SG90 180 standard servo
 
 const int min_p_width = 500; // the shortest pulse sent to a servo
 const int max_p_width = 2500; // the longest pulse sent to a servo
@@ -82,6 +83,7 @@ private:
   extern UnifiedServo TD8120MG;    // 360°
   extern UnifiedServo MG996R_360;  // 360°
   extern UnifiedServo MG996R;      // 180°
+  extern UnifiedServo SG90_180;        // 180°
 //----------------------------- button ----------------------------------------
 
 // callback: down = true/false, servo = target instance
@@ -94,6 +96,9 @@ struct BTN_handlers {
   BTN_handler onY = nullptr;
   BTN_handler onL = nullptr;
   BTN_handler onR = nullptr;
+
+  BTN_handler onLT = nullptr;
+  BTN_handler onRT = nullptr;
 };
 
 // helper: case-insensitive startsWith
@@ -117,3 +122,6 @@ void onBtnX(bool down, UnifiedServo& servo);
 void onBtnY(bool down, UnifiedServo& servo); 
 void onBtnL(bool down, UnifiedServo& servo);
 void onBtnR(bool down, UnifiedServo& servo);
+
+void onBtnLT(bool down, UnifiedServo& servo);
+void onBtnRT(bool down, UnifiedServo& servo);

@@ -12,11 +12,13 @@ UnifiedServo::UnifiedServo(ServoKind kind, int gpio, ServoProfile profile)
 ServoProfile TD8120MG_pf{min_p_width, max_p_width, default_p_width, hz};
 ServoProfile MG996R_pf{min_p_width, max_p_width, default_p_width, hz};
 ServoProfile MG996R_360_pf{min_p_width, max_p_width, default_p_width, hz};
+ServoProfile SG90_180_pf{600, 2400, 1500, hz};
 
 // Instances
 UnifiedServo TD8120MG(ServoKind::Continuous360, PIN__TD8120MG, TD8120MG_pf);
 UnifiedServo MG996R(ServoKind::Positional180, PIN_MG996R, MG996R_pf);
 UnifiedServo MG996R_360(ServoKind::Continuous360, PIN_MG996R_360, MG996R_360_pf);
+UnifiedServo SG90_180(ServoKind::Positional180, PIN_SG90_180, SG90_180_pf); 
 
 int channel_ = -1;
 bool UnifiedServo::begin()
@@ -143,17 +145,17 @@ bool button_handle_line(const String &raw)
   };
 
   if (hasA && g_handlers.onA)
-    g_handlers.onA(toDown(tokA), MG996R_360); // 360 feed manual 1
+    g_handlers.onA(toDown(tokA), MG996R_360); 
   if (hasB && g_handlers.onB)
-    g_handlers.onB(toDown(tokB), MG996R_360); // 360 feed manual 2
+    g_handlers.onB(toDown(tokB), MG996R_360); 
   // if (hasX && g_handlers.onX)
   //   g_handlers.onX(toDown(tokX), MG996R); // 180
   if (haxY && g_handlers.onY)
-    g_handlers.onY(toDown(tokY), MG996R_360); // 360 | feed auto
+    g_handlers.onY(toDown(tokY), MG996R_360); 
   if (hasL && g_handlers.onL)
-    g_handlers.onL(toDown(tokL), MG996R); // 180 | claw close
+    g_handlers.onL(toDown(tokL), MG996R); 
   if (hasR && g_handlers.onR)
-    g_handlers.onR(toDown(tokR), MG996R); // 180 | claw open
+    g_handlers.onR(toDown(tokR), MG996R); 
 
   // (จะพิมพ์ ACK ก็ได้)
   // Serial.printf("ACK %s\n", line.c_str());
@@ -207,8 +209,8 @@ void onBtnA(bool down, UnifiedServo &servoType)//manual control ->
   {
     if (down)
     {
-      Serial.println("manual 1");
-      servoType.setSpeedPercent(+18);
+      Serial.println("cam turns 1");
+      servoType.setSpeedPercent(+10);
     }
     else
     {
@@ -225,8 +227,8 @@ void onBtnB(bool down, UnifiedServo &servoType)//manual control <-
   {
     if (down)
     {
-      Serial.println("manual 2");
-      servoType.setSpeedPercent(-18); // forward
+      Serial.println("cam turns 2");
+      servoType.setSpeedPercent(-10); // forward
     }
     else
     {
@@ -237,31 +239,54 @@ void onBtnB(bool down, UnifiedServo &servoType)//manual control <-
 }
 void onBtnY(bool down, UnifiedServo &servoType)
 {
-  if (servoType.kind() == ServoKind::Continuous360)
+  if (servoType.kind() == ServoKind::Positional180)
   {
+    int count = 0;
     if (down)
     {
-      Serial.println("forward");
-      servoType.setSpeedPercent(-18); 
-      delay(500);
-      Serial.println("Deployed 1 sapling");
+      switch (count)
+      {
+      case 0:
+        Serial.println("To 45");
+        servoType.setAngleDeg(45);
+        count++;
+        break;
+      case 1:
+        Serial.println("To 90");
+        servoType.setAngleDeg(90);  
+        count++;
+        break;
+      case 2:
+        Serial.println("To 135");
+        servoType.setAngleDeg(135);
+        count++;
+        break;
+      case 3:
+        Serial.println("To 180");
+        servoType.setAngleDeg(180);
+        count = 0;
+        break;
+      default:
+        count = 0;
+        break;
+      }
     }
     else
     {
-      Serial.println("stop");
-      servoType.goCenterOrStop(); // stop
+      // Serial.println("stop");
+      // servoType.goCenterOrStop(); // stop
     }
   }
 }
 
 void onBtnL(bool down, UnifiedServo &servoType)
 {
-  if (servoType.kind() == ServoKind::Positional180)
+  if (servoType.kind() == ServoKind::Continuous360)
   {
     if (down)
     {
-      Serial.println("open");
-      servoType.setAngleDeg(100); 
+      Serial.println("manual 1");
+      servoType.setSpeedPercent(20); 
     }
     else
     {
@@ -272,12 +297,12 @@ void onBtnL(bool down, UnifiedServo &servoType)
 
 void onBtnR(bool down, UnifiedServo &servoType)
 {
-  if (servoType.kind() == ServoKind::Positional180)
+  if (servoType.kind() == ServoKind::Continuous360)
   {
     if (down)
     {
-      Serial.println("close");
-      servoType.setAngleDeg(170); 
+      Serial.println("manul 2");
+      servoType.setSpeedPercent(-20);
     }
     else
     {
