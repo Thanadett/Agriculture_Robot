@@ -19,8 +19,9 @@ class JoystickButtons(Node):
         # self.declare_parameter('btn_x', 2)  # Xbox: X=2
         self.declare_parameter('btn_y', 3)  # Xbox: Y=3
 
-        self.declare_parameter('btn_lb', 4)  #  LB=4
-        self.declare_parameter('btn_rb', 5)  #  RB=5
+        self.declare_parameter('axis_lt', 2)   # LT
+        self.declare_parameter('axis_rt', 5)   # RT
+
 
         self.declare_parameter('axis_index', 6)     # Xbox D-pad horizontal = 6
         self.declare_parameter('threshold', 0.5)    # deadzone threshold
@@ -35,8 +36,9 @@ class JoystickButtons(Node):
         # self.idx_x = int(p('btn_x').integer_value)
         self.idx_y = int(p('btn_y').integer_value)
 
-        self.idx_lb = int(p('btn_lb').integer_value)  
-        self.idx_rb = int(p('btn_rb').integer_value)
+        self.idx_lt = int(p('axis_lt').integer_value)
+        self.idx_rt = int(p('axis_rt').integer_value)
+
 
         self.axis_index  = int(p('axis_index').integer_value)
         self.threshold   = float(p('threshold').double_value)
@@ -57,8 +59,10 @@ class JoystickButtons(Node):
         self.prev_b = 0
         # self.prev_x = 0
         self.prev_y = 0
-        self.prev_lb = 0  
-        self.prev_rb = 0 
+
+        self.prev_lt = 0
+        self.prev_rt = 0
+
         #D - pad
         self.prev_left = 0
         self.prev_right = 0
@@ -123,19 +127,29 @@ class JoystickButtons(Node):
             self.prev_right = right
             self.last_change_ms = now_ms
 
-        # LB, RB
-        lb = self._btn(msg, self.idx_lb)
-        rb = self._btn(msg, self.idx_rb)
 
-        if lb != self.prev_lb:
-            self._emit(f'BTN LB={"DOWN" if lb else "UP"}')
-            self.prev_lb = lb
+        lt_val = 0.0
+        rt_val = 0.0
+
+        if 0 <= self.idx_lt < len(msg.axes):
+            lt_val = msg.axes[self.idx_lt]
+        if 0 <= self.idx_rt < len(msg.axes):
+            rt_val = msg.axes[self.idx_rt]
+
+        # ปรับ threshold ตรวจจับการกด (ตัวอย่าง: ต่ำกว่า 0.5 ถือว่ากด)
+        lt_pressed = 1 if lt_val < 0.5 else 0
+        rt_pressed = 1 if rt_val < 0.5 else 0
+
+        if lt_pressed != self.prev_lt:
+            self._emit(f'BTN LT={"DOWN" if lt_pressed else "UP"}')
+            self.prev_lt = lt_pressed
             self.last_change_ms = now_ms
 
-        if rb != self.prev_rb:
-            self._emit(f'BTN RB={"DOWN" if rb else "UP"}')
-            self.prev_rb = rb
+        if rt_pressed != self.prev_rt:
+            self._emit(f'BTN RT={"DOWN" if rt_pressed else "UP"}')
+            self.prev_rt = rt_pressed
             self.last_change_ms = now_ms
+
 
 
 
