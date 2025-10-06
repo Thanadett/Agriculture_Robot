@@ -17,6 +17,13 @@ def map_raw_to_percent(raw: float, released_raw: float, pressed_raw: float) -> i
     t = (raw - released_raw) / (pressed_raw - released_raw)
     return int(round(clamp(t * 100.0, 0.0, 100.0)))
 
+def snap_edges(pct: int, low: int, high: int) -> int:
+    if pct <= low:
+        return 0
+    if pct >= high:
+        return 100
+    return pct
+
 
 class JoystickButtons(Node):
     def __init__(self):
@@ -48,6 +55,10 @@ class JoystickButtons(Node):
         self.declare_parameter('threshold', 0.5)    # deadzone threshold
         self.declare_parameter('debounce_ms', 20) # small debounce
 
+        self.declare_parameter('snap_low', 3)   # snap ต่ำกว่า/เท่ากับ 3 -> 0
+        self.declare_parameter('snap_high', 97) # snap สูงกว่า/เท่ากับ 97 -> 100
+
+
 
         p = lambda k: self.get_parameter(k).get_parameter_value()
         joy_topic = p('joy_topic').string_value
@@ -67,6 +78,10 @@ class JoystickButtons(Node):
 
         self.ema_alpha   = float(p('ema_alpha').double_value)
         self.change_thr  = int(p('change_threshold_pct').integer_value)
+        self.snap_low  = int(p('snap_low').integer_value)
+        self.snap_high = int(p('snap_high').integer_value)
+
+
         self.publish_numeric = p('publish_numeric').bool_value
 
         self.axis_index  = int(p('axis_index').integer_value)
@@ -207,17 +222,22 @@ class JoystickButtons(Node):
             self.lt_pct = int(round((1.0 - a) * self.lt_pct + a * self.lt_target))
             self.rt_pct = int(round((1.0 - a) * self.rt_pct + a * self.rt_target))
 
+        # --- Snap ends: <3 -> 0, >97 -> 100 ---
+        lt_out = snap_edges(self.lt_pct, self.snap_low, self.snap_high)
+        rt_out = snap_edges(self.rt_pct, self.snap_low, self.snap_high)
+
         # ส่งเมื่อเปลี่ยนเกิน threshold (ลด spam)
         sent_any = False
-        if abs(self.lt_pct - self.last_sent_lt) >= self.change_thr:
-            self.pub_servo.publish(String(data=f'BTN LT={self.lt_pct}'))
-            self.last_sent_lt = self.lt_pct
+        if abs(lt_out - self.last_sent_lt) >= self.change_thr:
+            self.pub_servo.publish(String(data=f'BTN LT={lt_out}'))
+            self.last_sent_lt = lt_out
             sent_any = True
 
-        if abs(self.rt_pct - self.last_sent_rt) >= self.change_thr:
-            self.pub_servo.publish(String(data=f'BTN RT={self.rt_pct}'))
-            self.last_sent_rt = self.rt_pct
+        if abs(rt_out - self.last_sent_rt) >= self.change_thr:
+            self.pub_servo.publish(String(data=f'BTN RT={rt_out}'))
+            self.last_sent_rt = rt_out
             sent_any = True
+
 
         # numeric topics (optional)
         if sent_any and self.publish_numeric:
