@@ -118,6 +118,11 @@ class JoystickButtons(Node):
     @staticmethod
     def _btn(msg, idx):
         return 1 if (0 <= idx < len(msg.buttons) and msg.buttons[idx] == 1) else 0
+    
+    @staticmethod
+    def _axis(msg, idx):
+        """Safe axis read: return 0.0 if index is out of range."""
+        return float(msg.axes[idx]) if 0 <= idx < len(msg.axes) else 0.0
 
     def _emit(self, text: str):
         self.pub_servo.publish(String(data=text))
@@ -220,6 +225,9 @@ class JoystickButtons(Node):
                 self.pub_lt_pct.publish(Int32(data=int(self.lt_pct)))
             if self.pub_rt_pct:
                 self.pub_rt_pct.publish(Int32(data=int(self.rt_pct)))
+
+        if sent_any:
+            self.last_change_ms = now_ms
 
 
 
