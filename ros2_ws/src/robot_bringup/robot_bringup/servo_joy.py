@@ -70,8 +70,7 @@ class JoystickButtons(Node):
         self.debounce_ms = int(p('debounce_ms').integer_value)
         self.ema_alpha   = float(p('ema_alpha').double_value)
         self.change_threshold_pct = int(p('change_threshold_pct').integer_value)
-        self.publish_numeric = bool(p('publish_numeric').bool_value) if hasattr(p('publish_numeric'), 'bool_value') else True
-
+        self.publish_numeric = p('publish_numeric').bool_value
 
         # ---- Pub/Sub ----
         qos = QoSProfile(
@@ -97,8 +96,6 @@ class JoystickButtons(Node):
         # self.prev_x = 0
         self.prev_y = 0
 
-        self.prev_lt = 0
-        self.prev_rt = 0
         self.last_sent_lt = 0
         self.last_sent_rt = 0
 
