@@ -12,7 +12,7 @@
 #include <rosidl_runtime_c/primitives_sequence_functions.h>
 #include <std_msgs/msg/int32_multi_array.h>
 #include <std_msgs/msg/float32_multi_array.h>
-#include <std_msgs/msg/string.h>Q
+#include <std_msgs/msg/string.h>
 #include <std_msgs/msg/float32.h>
 #include <std_msgs/msg/bool.h>
 #include <geometry_msgs/msg/twist.h>
@@ -44,15 +44,17 @@
 #define TOPIC_PID_DEBUG "pid_debug"
 #define TOPIC_JOY_RESET "joy_reset"
 
-// ===== แก้ไข: Heading Control Parameters =====
-#define HEADING_DEADZONE 0.035f     // เพิ่มเป็น ±2° tolerance
-#define HEADING_LOCK_TIMEOUT_MS 500 // เพิ่มเป็น 500ms
-#define HEADING_KP 0.8f             // ลด gain ลง
-#define MAX_HEADING_CORRECTION 0.3f // ลดการแก้ไขสูงสุด
+// ===== แก้ไข: Heading Control Parameters - เพิ่ม I-term เพื่อแก้ bias =====
+#define HEADING_DEADZONE 0.052f      // ±3°
+#define HEADING_LOCK_TIMEOUT_MS 800  // ms รอให้หมุนเสร็จก่อนล็อค
+#define HEADING_KP 0.5f              // P: แก้ error
+#define HEADING_KI 0.0f              // I: แก้ bias
+#define HEADING_KD 0.0f              // D: ลดการส่าย
+#define MAX_HEADING_CORRECTION 0.25f // จำกัดการแก้
 
 // ===== แก้ไข: Dead Zone Parameters =====
-#define YAW_RATE_DEADZONE 0.005f // ลดเหลือ ±0.3°/s
-#define W_CMD_DEADZONE 0.05f     // เพิ่มเป็น ±2.8°/s เพื่อไม่ให้ขัดขวางการหมุนช้า
+#define YAW_RATE_DEADZONE 0.008f // ±0.46°/s
+#define W_CMD_DEADZONE 0.05f
 
 // ============================ Conditional Debug Macros ============================
 #define DEBUG_ENABLED (g_state != AGENT_CONNECTED)
@@ -290,7 +292,7 @@ static inline void fast_loop_200hz()
 #if USE_INNER_PID
     float W_cmd_effective = g_W_cmd;
 
-    // ===== แก้ไข: 4) Heading Control - ปรับเงื่อนไขให้ชัดเจนขึ้น =====
+    // ===== แก้ไข: 4) Heading Control - เพิ่ม Low-pass filter =====
     // ใช้ heading lock เฉพาะเมื่อ: กำลังเดินหน้า + ไม่หมุน + ผ่านเวลารอแล้ว
     if (g_heading_locked &&
         fabs(g_V_cmd) > 0.1f &&         // กำลังเดินหน้าอยู่
@@ -300,14 +302,21 @@ static inline void fast_loop_200hz()
 
         if (fabs(heading_error) > HEADING_DEADZONE)
         {
-            // Proportional control
-            W_cmd_effective = HEADING_KP * heading_error;
+            // Proportional control with rate limiting
+            float correction = HEADING_KP * heading_error;
+
+            // Low-pass filter เพื่อลด jitter
+            static float prev_correction = 0.0f;
+            correction = 0.7f * prev_correction + 0.3f * correction;
+            prev_correction = correction;
 
             // จำกัดความเร็วในการแก้
-            if (W_cmd_effective > MAX_HEADING_CORRECTION)
-                W_cmd_effective = MAX_HEADING_CORRECTION;
-            if (W_cmd_effective < -MAX_HEADING_CORRECTION)
-                W_cmd_effective = -MAX_HEADING_CORRECTION;
+            if (correction > MAX_HEADING_CORRECTION)
+                correction = MAX_HEADING_CORRECTION;
+            if (correction < -MAX_HEADING_CORRECTION)
+                correction = -MAX_HEADING_CORRECTION;
+
+            W_cmd_effective = correction;
         }
         else
         {
@@ -378,8 +387,6 @@ static inline void fast_loop_200hz()
 void setup()
 {
     Serial.begin(115200);
-    Serial.setRxBufferSize(1024); // เพิ่ม buffer
-    Serial.setTimeout(100);       // ลด timeout
     delay(100);
     DEBUG_PRINTLN("\n[BOOT] ESP32 starting...");
 
@@ -413,11 +420,11 @@ void setup()
 
 // ========================================== แก้ไข: PID setup ==========================================
 #if USE_INNER_PID
-    // ลด gains ลงมากเพื่อไม่ขัดขวางการหมุน และลด I term เพื่อไม่ให้สะสม
-    g_pid_wz.setGains(0.8f, 0.0f, 0.005f); // ลด Kp มาก, ปิด Ki, ลด Kd
-    g_pid_wz.setIClamp(-0.1f, 0.1f);       // ลด I clamp
-    g_pid_wz.setOutputClamp(-3.5f, 3.5f);  // เพิ่มเป็น ±3.5
-    g_pid_wz.setDLpf(8.0f);                // ลดเพื่อให้ตอบสนองเร็ว
+    // ลด gains ลงมากเพื่อไม่ขัดขวางการหมุน และลด overshoot
+    g_pid_wz.setGains(0.8f, 0.05f, 0.002f); // ลด Kp, Ki , Kd
+    g_pid_wz.setIClamp(-0.05f, 0.05f);      // ลด I clamp
+    g_pid_wz.setOutputClamp(-3.0f, 3.0f);   // ลดเล็กน้อยเป็น ±3.0
+    g_pid_wz.setDLpf(5.0f);                 // ลดเพื่อกรอง noise มากขึ้น
     g_pid_wz.reset();
 
     g_V_cmd = 0.0f;
@@ -427,7 +434,7 @@ void setup()
     g_last_nonzero_W_ms = 0;
 
     DEBUG_PRINTLN("[PID] Rate + Heading controller ENABLED");
-    DEBUG_PRINTF("[PID] Rate loop: Kp=0.8, Ki=0.0, Kd=0.005, Out=[-3.5,3.5]\n");
+    DEBUG_PRINTF("[PID] Rate loop: Kp=0.8, Ki=0.05, Kd=0.002, Out=[-3.0,3.0]\n");
     DEBUG_PRINTF("[HEADING] Kp=%.1f, Deadzone=%.1f deg, MaxCorr=%.2f rad/s\n",
                  HEADING_KP, HEADING_DEADZONE * 180.0f / PI, MAX_HEADING_CORRECTION);
     DEBUG_PRINTF("[DEADZONE] Rate=%.3f, Cmd=%.3f rad/s\n",

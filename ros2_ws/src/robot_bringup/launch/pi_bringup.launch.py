@@ -120,8 +120,8 @@ def generate_launch_description():
 
         # ================= Camera Stream (Flask) =================
         # Camera devices
-        DeclareLaunchArgument('video_device1', default_value='0'),
-        DeclareLaunchArgument('video_device2', default_value='2'),
+        DeclareLaunchArgument('video_device1', default_value='2'),
+        DeclareLaunchArgument('video_device2', default_value='0'),
         DeclareLaunchArgument('width1',   default_value='648'),
         DeclareLaunchArgument('height1',  default_value='432'),
         DeclareLaunchArgument('width2',   default_value='432'),
@@ -144,10 +144,10 @@ def generate_launch_description():
         DeclareLaunchArgument('c2_mode', default_value='pixel',
                               description='cam2 guide mode: percent|pixel'),
 
-        DeclareLaunchArgument('c1_left',  default_value='100'),
-        DeclareLaunchArgument('c1_right', default_value='400'),
-        DeclareLaunchArgument('c2_left',  default_value='70'),
-        DeclareLaunchArgument('c2_right', default_value='280'),
+        DeclareLaunchArgument('c1_left',  default_value='-5.0'),
+        DeclareLaunchArgument('c1_right', default_value='324'),
+        DeclareLaunchArgument('c2_left',  default_value='30'),
+        DeclareLaunchArgument('c2_right', default_value='275'),
 
         DeclareLaunchArgument('c1_angle', default_value='0.0',
                               description='cam1 vertical angle deg'),
@@ -169,10 +169,10 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'c2_color', default_value='255,255,0', description='B,G,R'),
 
-        DeclareLaunchArgument('c1_thickness', default_value='2'),
-        DeclareLaunchArgument('c2_thickness', default_value='1'),
+        DeclareLaunchArgument('c1_thickness', default_value='3'),
+        DeclareLaunchArgument('c2_thickness', default_value='3'),
 
-        DeclareLaunchArgument('c1_alpha', default_value='0.6'),
+        DeclareLaunchArgument('c1_alpha', default_value='0.4'),
         DeclareLaunchArgument('c2_alpha', default_value='0.6'),
 
         DeclareLaunchArgument('c1_dash', default_value='18'),
@@ -181,29 +181,29 @@ def generate_launch_description():
         DeclareLaunchArgument('c2_gap',  default_value='12'),
 
         # ---- Horizontal guide lines ----
-        DeclareLaunchArgument('c1_top',    default_value='0.0',
+        DeclareLaunchArgument('c1_top',    default_value='-5.0',
                               description='cam1 horizontal top line (percent|pixel by mode)'),
-        DeclareLaunchArgument('c1_bottom', default_value='0.0',
+        DeclareLaunchArgument('c1_bottom', default_value='304.0',
                               description='cam1 horizontal bottom line (percent|pixel by mode)'),
-        DeclareLaunchArgument('c2_top',    default_value='88',
+        DeclareLaunchArgument('c2_top',    default_value='68.0',
                               description='cam2 horizontal top line (percent|pixel by mode)'),
-        DeclareLaunchArgument('c2_bottom', default_value='200',
+        DeclareLaunchArgument('c2_bottom', default_value='-50.0',
                               description='cam2 horizontal bottom line (percent|pixel by mode)'),
 
         # ช่วง X สำหรับเส้นแนวนอน (ใช้ตาม c1_mode/c2_mode: percent|pixel)
-        DeclareLaunchArgument('c1_x_left',  default_value='0.0',
+        DeclareLaunchArgument('c1_x_left',  default_value='20.0',
                               description='span left (percent|pixel by mode)'),
-        DeclareLaunchArgument('c1_x_right', default_value='0.0',
+        DeclareLaunchArgument('c1_x_right', default_value='628.0',
                               description='span right (percent|pixel by mode)'),
         DeclareLaunchArgument('c2_x_left',  default_value='0.0',
                               description='span left (percent|pixel by mode)'),
-        DeclareLaunchArgument('c2_x_right', default_value='400',
+        DeclareLaunchArgument('c2_x_right', default_value='350.0',
                               description='span right (percent|pixel by mode)'),
 
         # มุมเอียงของเส้นแนวนอน
         DeclareLaunchArgument('c1_h_angle', default_value='0.0',
                               description='cam1 horizontal angle deg'),
-        DeclareLaunchArgument('c2_h_angle', default_value='0.0',
+        DeclareLaunchArgument('c2_h_angle', default_value='7.0',
                               description='cam2 horizontal angle deg'),
 
         # สไตล์/สี/ความหนา/ความโปร่งใส/ขีด-ช่องว่าง ของเส้นแนวนอน
@@ -218,8 +218,8 @@ def generate_launch_description():
         DeclareLaunchArgument('c2_h_color', default_value='255,255,0',
                               description='B,G,R (override)'),
 
-        DeclareLaunchArgument('c1_h_thickness', default_value='2'),
-        DeclareLaunchArgument('c2_h_thickness', default_value='2'),
+        DeclareLaunchArgument('c1_h_thickness', default_value='5'),
+        DeclareLaunchArgument('c2_h_thickness', default_value='5'),
 
         DeclareLaunchArgument('c1_h_alpha', default_value='0.7'),
         DeclareLaunchArgument('c2_h_alpha', default_value='0.7'),
