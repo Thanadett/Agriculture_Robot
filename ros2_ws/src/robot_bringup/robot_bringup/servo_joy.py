@@ -19,6 +19,9 @@ class JoystickButtons(Node):
         # self.declare_parameter('btn_x', 2)  # Xbox: X=2
         self.declare_parameter('btn_y', 3)  # Xbox: Y=3
 
+        self.declare_parameter('btn_lb', 4)  #  LB=4
+        self.declare_parameter('btn_rb', 5)  #  RB=5
+
         self.declare_parameter('axis_index', 6)     # Xbox D-pad horizontal = 6
         self.declare_parameter('threshold', 0.5)    # deadzone threshold
         self.declare_parameter('debounce_ms', 20) # small debounce
@@ -31,6 +34,9 @@ class JoystickButtons(Node):
         self.idx_b = int(p('btn_b').integer_value)
         # self.idx_x = int(p('btn_x').integer_value)
         self.idx_y = int(p('btn_y').integer_value)
+
+        self.idx_lb = int(p('btn_lb').integer_value)  
+        self.idx_rb = int(p('btn_rb').integer_value)
 
         self.axis_index  = int(p('axis_index').integer_value)
         self.threshold   = float(p('threshold').double_value)
@@ -51,7 +57,9 @@ class JoystickButtons(Node):
         self.prev_b = 0
         # self.prev_x = 0
         self.prev_y = 0
-
+        self.prev_lb = 0  
+        self.prev_rb = 0 
+        #D - pad
         self.prev_left = 0
         self.prev_right = 0
         self.last_change_ms = 0.0
@@ -96,6 +104,7 @@ class JoystickButtons(Node):
             self.prev_y = y
             self.last_change_ms = now_ms
 
+        # D-pad left/right
         val = 0.0
         if 0 <= self.axis_index < len(msg.axes):
             val = float(msg.axes[self.axis_index])
@@ -113,6 +122,21 @@ class JoystickButtons(Node):
             self._emit(f'BTN R={"DOWN" if right else "UP"}')
             self.prev_right = right
             self.last_change_ms = now_ms
+
+        # LB, RB
+        lb = self._btn(msg, self.idx_lb)
+        rb = self._btn(msg, self.idx_rb)
+
+        if lb != self.prev_lb:
+            self._emit(f'BTN LB={"DOWN" if lb else "UP"}')
+            self.prev_lb = lb
+            self.last_change_ms = now_ms
+
+        if rb != self.prev_rb:
+            self._emit(f'BTN RB={"DOWN" if rb else "UP"}')
+            self.prev_rb = rb
+            self.last_change_ms = now_ms
+
 
 
 def main():
