@@ -1,4 +1,5 @@
 #ifdef Node1
+
 #include <Arduino.h>
 #include <math.h>
 #include <micro_ros_platformio.h>
@@ -11,7 +12,7 @@
 #include <rosidl_runtime_c/primitives_sequence_functions.h>
 #include <std_msgs/msg/int32_multi_array.h>
 #include <std_msgs/msg/float32_multi_array.h>
-#include <std_msgs/msg/string.h>
+#include <std_msgs/msg/string.h>Q
 #include <std_msgs/msg/float32.h>
 #include <std_msgs/msg/bool.h>
 #include <geometry_msgs/msg/twist.h>
@@ -43,15 +44,15 @@
 #define TOPIC_PID_DEBUG "pid_debug"
 #define TOPIC_JOY_RESET "joy_reset"
 
-// ===== Heading Control Parameters =====
-#define HEADING_DEADZONE 0.017f      // ±1° tolerance
-#define HEADING_LOCK_TIMEOUT_MS 300  // ล็อคหลังหยุดหมุน 300ms
-#define HEADING_KP 0.8f              // Proportional gain สำหรับ heading
-#define MAX_HEADING_CORRECTION 0.08f // จำกัดการแก้ไขสูงสุด (rad/s)
+// ===== แก้ไข: Heading Control Parameters =====
+#define HEADING_DEADZONE 0.035f     // เพิ่มเป็น ±2° tolerance
+#define HEADING_LOCK_TIMEOUT_MS 500 // เพิ่มเป็น 500ms
+#define HEADING_KP 0.8f             // ลด gain ลง
+#define MAX_HEADING_CORRECTION 0.3f // ลดการแก้ไขสูงสุด
 
-// ===== Dead Zone Parameters =====
-#define YAW_RATE_DEADZONE 0.01f // ±0.01 rad/s (~0.6°/s)
-#define W_CMD_DEADZONE 0.015f   // ±0.015 rad/s
+// ===== แก้ไข: Dead Zone Parameters =====
+#define YAW_RATE_DEADZONE 0.005f // ลดเหลือ ±0.3°/s
+#define W_CMD_DEADZONE 0.05f     // เพิ่มเป็น ±2.8°/s เพื่อไม่ให้ขัดขวางการหมุนช้า
 
 // ============================ Conditional Debug Macros ============================
 #define DEBUG_ENABLED (g_state != AGENT_CONNECTED)
@@ -232,7 +233,6 @@ static void on_joy_reset(const void *msgin)
     if (now && !prev)
     {
         enc.reset();
-        // ===== รีเซ็ต heading lock เมื่อรีเซ็ต encoder =====
         g_heading_locked = false;
         g_target_heading = 0.0f;
         DEBUG_PRINTLN("[RESET] wheel distance & heading cleared");
@@ -240,7 +240,7 @@ static void on_joy_reset(const void *msgin)
     prev = now;
 }
 
-// ===== fast_loop เพิ่ม Heading Control =====
+// ===== แก้ไข: fast_loop เพิ่ม Heading Control =====
 static inline void fast_loop_200hz()
 {
     const uint32_t now_us = micros();
@@ -290,16 +290,17 @@ static inline void fast_loop_200hz()
 #if USE_INNER_PID
     float W_cmd_effective = g_W_cmd;
 
-    // ===== ใหม่: 4) Heading Control =====
-    if (g_heading_locked && fabs(g_W_cmd) < W_CMD_DEADZONE)
+    // ===== แก้ไข: 4) Heading Control - ปรับเงื่อนไขให้ชัดเจนขึ้น =====
+    // ใช้ heading lock เฉพาะเมื่อ: กำลังเดินหน้า + ไม่หมุน + ผ่านเวลารอแล้ว
+    if (g_heading_locked &&
+        fabs(g_V_cmd) > 0.1f &&         // กำลังเดินหน้าอยู่
+        fabs(g_W_cmd) < W_CMD_DEADZONE) // ไม่ได้สั่งให้หมุน
     {
-        // คำนวณ heading error
         float heading_error = normalizeAngle(g_target_heading - yaw_kf);
 
-        // ถ้า error เกิน deadzone ให้แก้
         if (fabs(heading_error) > HEADING_DEADZONE)
         {
-            // Proportional control: แปลง heading error → yaw rate
+            // Proportional control
             W_cmd_effective = HEADING_KP * heading_error;
 
             // จำกัดความเร็วในการแก้
@@ -310,7 +311,6 @@ static inline void fast_loop_200hz()
         }
         else
         {
-            // อยู่ใน deadzone → ไม่ต้องแก้
             W_cmd_effective = 0.0f;
         }
     }
@@ -318,32 +318,34 @@ static inline void fast_loop_200hz()
     // 5) PID Rate Control (inner loop)
     float u = 0.0f;
 
-    // Dead zone สำหรับ rate control
+    // Dead zone สำหรับ rate control - เพิ่มเกณฑ์เพื่อไม่รบกวนตอนหมุน
     if (fabs(wz_world) < YAW_RATE_DEADZONE &&
-        fabs(W_cmd_effective) < W_CMD_DEADZONE)
+        fabs(W_cmd_effective) < 0.02f) // เพิ่มจาก YAW_RATE_DEADZONE
     {
-        // ทั้ง measurement และ command ใกล้ 0 → ไม่ต้อง PID
         u = 0.0f;
+        g_pid_wz.reset(); // รีเซ็ต PID เพื่อไม่ให้ I term สะสม
     }
     else
     {
-        // คำนวณ PID ปกติ
         u = g_pid_wz.step(W_cmd_effective, wz_world, dt);
     }
 
     float W_eff = W_cmd_effective + u;
 
-    // 6) Clamp output
-    if (W_eff > 1.0f)
-        W_eff = 1.0f;
-    if (W_eff < -1.0f)
-        W_eff = -1.0f;
+    // 6) Clamp output - อนุญาตให้มากขึ้น
+    if (W_eff > 2.0f)
+        W_eff = 2.0f;
+    if (W_eff < -2.0f)
+        W_eff = -2.0f;
 
     // 7) ส่งคำสั่งไปมอเตอร์
     cmdVW_to_targets(g_V_cmd, W_eff);
+#else
+    // ถ้าไม่ใช้ PID ก็ส่งตรง ๆ
+    cmdVW_to_targets(g_V_cmd, g_W_cmd);
 #endif
 
-    // 8) Debug publish ~25-50 Hz
+    // 8) Debug publish ~25 Hz
     static uint32_t dbg_last_ms = 0;
     const uint32_t now_ms = millis();
     if (g_state == AGENT_CONNECTED && (now_ms - dbg_last_ms) >= 40U)
@@ -356,13 +358,14 @@ static inline void fast_loop_200hz()
         RCSOFTCHECK(rcl_publish(&pub_gyro_bias, &msg_gyro_bias, NULL));
 
 #if USE_INNER_PID
-        if (msg_pid_debug.data.size >= 5)
+        if (msg_pid_debug.data.size >= 6)
         {
-            msg_pid_debug.data.data[0] = W_cmd_effective;                // setpoint (อาจถูกแก้โดย heading control)
-            msg_pid_debug.data.data[1] = wz_world;                       // actual yaw rate
-            msg_pid_debug.data.data[2] = u;                              // PID correction
-            msg_pid_debug.data.data[3] = W_eff;                          // effective command
-            msg_pid_debug.data.data[4] = g_heading_locked ? 1.0f : 0.0f; // lock status
+            msg_pid_debug.data.data[0] = g_W_cmd;                        // original command
+            msg_pid_debug.data.data[1] = W_cmd_effective;                // after heading correction
+            msg_pid_debug.data.data[2] = wz_world;                       // actual yaw rate
+            msg_pid_debug.data.data[3] = u;                              // PID correction
+            msg_pid_debug.data.data[4] = W_eff;                          // final output
+            msg_pid_debug.data.data[5] = g_heading_locked ? 1.0f : 0.0f; // lock status
             RCSOFTCHECK(rcl_publish(&pub_pid_debug, &msg_pid_debug, NULL));
         }
 #endif
@@ -375,6 +378,8 @@ static inline void fast_loop_200hz()
 void setup()
 {
     Serial.begin(115200);
+    Serial.setRxBufferSize(1024); // เพิ่ม buffer
+    Serial.setTimeout(100);       // ลด timeout
     delay(100);
     DEBUG_PRINTLN("\n[BOOT] ESP32 starting...");
 
@@ -406,16 +411,15 @@ void setup()
     g_kf.setNoise(1e-5f, 1e-6f, 1e-3f);
     g_kf.init(0.0f, 0.0f);
 
-// ========================================== PID setup ==========================================
+// ========================================== แก้ไข: PID setup ==========================================
 #if USE_INNER_PID
-    // ===== แก้ไข: ปรับ PID gains ให้เหมาะกับ cascaded control =====
-    g_pid_wz.setGains(0.8f, 0.05f, 0.04f); // Moderate gains
-    g_pid_wz.setIClamp(-0.2f, 0.2f);
-    g_pid_wz.setOutputClamp(-1.0f, 1.0f); // จำกัดไม่ให้แก้มากเกิน
-    g_pid_wz.setDLpf(15.0f);
+    // ลด gains ลงมากเพื่อไม่ขัดขวางการหมุน และลด I term เพื่อไม่ให้สะสม
+    g_pid_wz.setGains(0.8f, 0.0f, 0.005f); // ลด Kp มาก, ปิด Ki, ลด Kd
+    g_pid_wz.setIClamp(-0.1f, 0.1f);       // ลด I clamp
+    g_pid_wz.setOutputClamp(-3.5f, 3.5f);  // เพิ่มเป็น ±3.5
+    g_pid_wz.setDLpf(8.0f);                // ลดเพื่อให้ตอบสนองเร็ว
     g_pid_wz.reset();
 
-    // ===== ใหม่: รีเซ็ต heading control state =====
     g_V_cmd = 0.0f;
     g_W_cmd = 0.0f;
     g_target_heading = 0.0f;
@@ -423,7 +427,7 @@ void setup()
     g_last_nonzero_W_ms = 0;
 
     DEBUG_PRINTLN("[PID] Rate + Heading controller ENABLED");
-    DEBUG_PRINTF("[PID] Rate loop: Kp=0.8, Ki=0.05, Kd=0.04, Out=[-0.6,0.6]\n");
+    DEBUG_PRINTF("[PID] Rate loop: Kp=0.8, Ki=0.0, Kd=0.005, Out=[-3.5,3.5]\n");
     DEBUG_PRINTF("[HEADING] Kp=%.1f, Deadzone=%.1f deg, MaxCorr=%.2f rad/s\n",
                  HEADING_KP, HEADING_DEADZONE * 180.0f / PI, MAX_HEADING_CORRECTION);
     DEBUG_PRINTF("[DEADZONE] Rate=%.3f, Cmd=%.3f rad/s\n",
@@ -510,14 +514,14 @@ void loop()
         break;
     }
 
-    // Local serial command helper (ปิดเมื่อเชื่อม Agent)
+    // Local serial command helper
     if (g_state != AGENT_CONNECTED)
     {
         motorDrive_handleSerialOnce();
     }
 }
 
-// ===== แก้ไข: on_cmd_vel เพิ่ม heading lock logic =====
+// ===== แก้ไข: on_cmd_vel ปรับ heading lock logic =====
 static void on_cmd_vel(const void *msgin)
 {
     const geometry_msgs__msg__Twist *m = (const geometry_msgs__msg__Twist *)msgin;
@@ -527,35 +531,37 @@ static void on_cmd_vel(const void *msgin)
     g_V_cmd = V;
     g_W_cmd = W;
 
-    // ===== ใหม่: จัดการ heading lock =====
     const uint32_t now = millis();
 
-    if (fabs(W) > 0.05f)
+    // ===== แก้ไข: ชัดเจนขึ้นในการจัดการ heading lock =====
+    if (fabs(W) > W_CMD_DEADZONE)
     {
-        // กำลังหมุน → ปลดล็อค heading
+        // กำลังสั่งหมุนอย่างชัดเจน → ปลดล็อค และรีเซ็ต PID
         g_heading_locked = false;
         g_last_nonzero_W_ms = now;
+        g_pid_wz.reset(); // รีเซ็ตเพื่อไม่ให้ I term สะสม
     }
-    else if (fabs(V) > 0.1f && !g_heading_locked)
+    else if (fabs(V) > 0.15f && !g_heading_locked)
     {
-        // เดินหน้า + ไม่หมุน + ยังไม่ล็อค
+        // เดินหน้าเร็วพอ + ไม่หมุน + รอพอนาน → ล็อค
         if (now - g_last_nonzero_W_ms > HEADING_LOCK_TIMEOUT_MS)
         {
-            // ล็อคทิศทางปัจจุบัน
             g_target_heading = g_kf.yaw();
             g_heading_locked = true;
+            g_pid_wz.reset(); // รีเซ็ต PID ก่อนล็อค heading
             DEBUG_PRINTF("[HEADING] Locked at %.1f deg\n",
                          g_target_heading * 180.0f / PI);
         }
     }
-    else if (fabs(V) < 0.05f && fabs(W) < 0.05f)
+    else if (fabs(V) < 0.1f && fabs(W) < W_CMD_DEADZONE)
     {
         // หยุดนิ่ง → รีเซ็ต
         g_heading_locked = false;
+        g_pid_wz.reset(); // รีเซ็ต PID เมื่อหยุด
     }
 
 #if USE_INNER_PID
-    // ให้ fast_loop จัดการส่งคำสั่ง
+    // fast_loop จะจัดการส่งคำสั่ง
 #else
     cmdVW_to_targets(V, W);
 #endif
@@ -634,7 +640,7 @@ static bool createEntities()
         DEBUG_PRINTLN("[ERR] pub wheel_ticks");
         return false;
     }
-    rosidl_runtime_c__float__Sequence__init(&msg_ticks.data, 4);
+    rosidl_runtime_c__float32__Sequence__init(&msg_ticks.data, 4);
     msg_ticks.data.data[0] = 0;
     msg_ticks.data.data[1] = 0;
     msg_ticks.data.data[2] = 0;
@@ -677,7 +683,7 @@ static bool createEntities()
     }
     DEBUG_PRINTLN("[INIT] pub gyro_bias created");
 
-    // เพิ่ม PID debug publisher
+    // ===== แก้ไข: เพิ่ม PID debug publisher ขนาด 6 elements =====
     if (rclc_publisher_init_default(&pub_pid_debug, &node,
                                     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
                                     TOPIC_PID_DEBUG) != RCL_RET_OK)
@@ -685,8 +691,8 @@ static bool createEntities()
         DEBUG_PRINTLN("[ERR] pub pid_debug");
         return false;
     }
-    rosidl_runtime_c__float__Sequence__init(&msg_pid_debug.data, 5);
-    for (int i = 0; i < 5; i++)
+    rosidl_runtime_c__float32__Sequence__init(&msg_pid_debug.data, 6);
+    for (int i = 0; i < 6; i++)
         msg_pid_debug.data.data[i] = 0.0f;
     DEBUG_PRINTLN("[INIT] pub pid_debug created");
 
@@ -784,3 +790,6 @@ static void rclErrorLoop()
 }
 
 #endif // Node1
+
+// pkill -f micro_ros_agent || true
+// fuser -k /dev/ttyUSB0 || true
