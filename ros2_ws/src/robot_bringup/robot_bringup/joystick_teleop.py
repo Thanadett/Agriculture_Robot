@@ -160,8 +160,8 @@ class JoystickTeleop(Node):
             self.w_target = (math.copysign(self.max_ang, ang_in)
                              if abs(ang_in) > 0.0 else 0.0)
         else:
-            self.v_target = v_norm * 0.75
-            self.w_target = w_norm * 0.75
+            self.v_target = v_norm 
+            self.w_target = w_norm 
 
     # -------- main loop --------
     def tick(self):
