@@ -249,7 +249,7 @@ void onStpUp(bool down, UnifiedStepper &stepper)
   if (down)
   {
     // CCW with ramp
-    stepper.rotateContinuous(true, SUGGESTED_SPS);
+    stepper.rotateContinuous(false, SUGGESTED_SPS);
     isUpRunning = true;
     isDownRunning = false;
   }
@@ -265,7 +265,7 @@ void onStpDown(bool down, UnifiedStepper &stepper)
   if (down)
   {
     // CW with ramp
-    stepper.rotateContinuous(false, SUGGESTED_SPS);
+    stepper.rotateContinuous(true, SUGGESTED_SPS);
     isDownRunning = true;
     isUpRunning = false;
   }

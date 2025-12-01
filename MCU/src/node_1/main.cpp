@@ -45,12 +45,12 @@
 #define TOPIC_JOY_RESET "joy_reset"
 
 // ===== แก้ไข: Heading Control Parameters - เพิ่ม I-term เพื่อแก้ bias =====
-#define HEADING_DEADZONE 0.052f      // ±3°
-#define HEADING_LOCK_TIMEOUT_MS 800  // ms รอให้หมุนเสร็จก่อนล็อค
-#define HEADING_KP 0.5f              // P: แก้ error
-#define HEADING_KI 0.0f              // I: แก้ bias
-#define HEADING_KD 0.0f              // D: ลดการส่าย
-#define MAX_HEADING_CORRECTION 0.25f // จำกัดการแก้
+#define HEADING_DEADZONE 0.052f     // ±3°
+#define HEADING_LOCK_TIMEOUT_MS 800 // ms รอให้หมุนเสร็จก่อนล็อค
+#define HEADING_KP 2.5f             // P: แก้ error
+#define HEADING_KI 0.05f            // I: แก้ bias
+#define HEADING_KD 0.2f             // D: ลดการส่าย
+#define MAX_HEADING_CORRECTION 0.4f // จำกัดการแก้
 
 // ===== แก้ไข: Dead Zone Parameters =====
 #define YAW_RATE_DEADZONE 0.008f // ±0.46°/s

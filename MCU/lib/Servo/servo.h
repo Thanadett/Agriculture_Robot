@@ -13,13 +13,18 @@
 // PWM pins of ESP32 
 constexpr int PIN__TD8120MG = 19;
 constexpr int PIN_MG996R_360 = 17; //MG996R 360 continuous rotation servo
-constexpr int PIN_MG996R = 18; //MG996R 180 standard servo
-constexpr int PIN_SG90_180 = 35; //SG90 180 standard servo
+constexpr int PIN_MG996R = 27; //MG996R 180 standard servo
+constexpr int PIN_SG90_180 = 14; //SG90 180 standard servo
 
 const int min_p_width = 500; // the shortest pulse sent to a servo
 const int max_p_width = 2500; // the longest pulse sent to a servo
 const int default_p_width = 1500; // default pulse width
 const int hz = 50; // Analog servos run at ~50 Hz updates
+
+// --- NEW: analog trigger state (0..100) ---
+static int g_LT_pct = 0;  // last LT percent (0..100)
+static int g_RT_pct = 0;  // last RT percent (0..100)
+
 
 
 struct ServoProfile {
@@ -86,19 +91,31 @@ private:
   extern UnifiedServo SG90_180;        // 180°
 //----------------------------- button ----------------------------------------
 
+typedef void (*BtnBoolFn)(bool /*down*/, UnifiedServo &);
+typedef void (*BtnAnalogFn)(int /*0..100*/, UnifiedServo &);
+
+// --- NEW: latched state for analog triggers ---
+enum class ActiveSide { NONE, LT, RT };
+static ActiveSide g_active_side = ActiveSide::NONE;
+static int g_last_angle_deg = 0;  // เริ่มไว้กลาง (ปรับได้ตามต้องการ)
+static const int kMinActivePct = 5;   // ≤3 ถือว่า "ปล่อย/สัญญาณรบกวน" -> เพิกเฉย
+static const int kSnapHighPct = 97;   // ≥97 snap เป็น 100 (ตัวเลือก)
+
+
 // callback: down = true/false, servo = target instance
 using BTN_handler = void(*)(bool down, UnifiedServo& servo);
 
 struct BTN_handlers {
-  BTN_handler onA = nullptr;
-  BTN_handler onB = nullptr;
-  BTN_handler onX = nullptr;
-  BTN_handler onY = nullptr;
-  BTN_handler onL = nullptr;
-  BTN_handler onR = nullptr;
+  BtnBoolFn   onA = nullptr;
+  BtnBoolFn   onB = nullptr;
+  BtnBoolFn   onX = nullptr;
+  BtnBoolFn   onY = nullptr;
+  BtnBoolFn   onL = nullptr;
+  BtnBoolFn   onR = nullptr;
 
-  BTN_handler onLT = nullptr;
-  BTN_handler onRT = nullptr;
+  // --- NEW: สำหรับ LT/RT แบบแอนะล็อก ---
+  BtnAnalogFn onLT = nullptr;   // รับค่า 0..100
+  BtnAnalogFn onRT = nullptr;   // รับค่า 0..100
 };
 
 // helper: case-insensitive startsWith
@@ -123,5 +140,6 @@ void onBtnY(bool down, UnifiedServo& servo);
 void onBtnL(bool down, UnifiedServo& servo);
 void onBtnR(bool down, UnifiedServo& servo);
 
-void onBtnLT(bool down, UnifiedServo& servo);
-void onBtnRT(bool down, UnifiedServo& servo);
+// NEW prototypes
+void onBtnLT(int percent, UnifiedServo& servo);
+void onBtnRT(int percent, UnifiedServo& servo);

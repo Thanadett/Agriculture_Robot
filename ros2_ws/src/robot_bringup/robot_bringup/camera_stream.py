@@ -249,6 +249,7 @@ def draw_overlay_inplace(frame_bgr, fps_ema, camera_name, show_fps=True):
                     (127, 255, 16), thick, cv2.LINE_AA)
 
 # ---------------- ROS2 Subscribers ----------------
+ROS_NODE = None
 _ros_ok = False
 try:
     import rclpy
@@ -337,6 +338,10 @@ def start_ros_subscribers_in_thread():
     th = threading.Thread(target=_spin, daemon=True)
     th.start()
     log.info("ROS subscribers started (spin in background thread)")
+
+    global ROS_NODE
+    ROS_NODE = node
+
     return node
 
 # ---------------- Capture Thread ----------------
@@ -541,6 +546,27 @@ def video2():
                  'Access-Control-Allow-Origin':'*'}
     )
 
+from flask import jsonify
+
+@app.route("/api/topics")
+def api_topics():
+    global ROS_NODE
+    if ROS_NODE is None:
+        return jsonify({"ok": False, "error": "ROS node not ready"}), 503
+    try:
+        names_types = ROS_NODE.get_topic_names_and_types()
+        hide = {"/rosout", "/parameter_events"}
+        topics = [
+            {"name": name, "types": types}
+            for name, types in names_types
+            if name not in hide
+        ]
+        topics.sort(key=lambda t: t["name"])
+        return jsonify({"ok": True, "topics": topics})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+    
 @app.route("/api/telemetry")
 def api_telemetry():
     global fps_ema_cam1, fps_ema_cam2, CONFIG, ros_data

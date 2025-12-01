@@ -21,6 +21,8 @@ void setup()
   servo_h.onY = onBtnY; //sg90 45 degree turn
   servo_h.onL = onBtnL; //360 servo disk ctrl by index 6
   servo_h.onR = onBtnR; //
+  servo_h.onLT = onBtnLT; 
+  servo_h.onRT = onBtnRT;
 
   // callbacks for button A/B/X
   button_set_handlers(servo_h);

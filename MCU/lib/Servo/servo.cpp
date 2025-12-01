@@ -135,28 +135,51 @@ bool button_handle_line(const String &raw)
   bool hasA = _parseTokenAfterEquals(line, "A=", tokA);
   bool hasB = _parseTokenAfterEquals(line, "B=", tokB);
   bool hasX = _parseTokenAfterEquals(line, "X=", tokX);
-  bool haxY = _parseTokenAfterEquals(line, "Y=", tokY);
+  bool hasY = _parseTokenAfterEquals(line, "Y=", tokY);
   bool hasL = _parseTokenAfterEquals(line, "L=", tokL);
   bool hasR = _parseTokenAfterEquals(line, "R=", tokR);
-
+  // --- NEW: parse analog triggers ---
+  String tokLT, tokRT;
+  bool hasLT = _parseTokenAfterEquals(line, "LT=", tokLT);
+  bool hasRT = _parseTokenAfterEquals(line, "RT=", tokRT);
   auto toDown = [](const String &t) -> bool
   {
     return t.equalsIgnoreCase("DOWN") || t == "1";
   };
 
   if (hasA && g_handlers.onA)
-    g_handlers.onA(toDown(tokA), MG996R_360); 
+    g_handlers.onA(toDown(tokA), TD8120MG); 
   if (hasB && g_handlers.onB)
-    g_handlers.onB(toDown(tokB), MG996R_360); 
+    g_handlers.onB(toDown(tokB), TD8120MG); 
   // if (hasX && g_handlers.onX)
   //   g_handlers.onX(toDown(tokX), MG996R); // 180
-  if (haxY && g_handlers.onY)
-    g_handlers.onY(toDown(tokY), MG996R_360); 
+  if (hasY && g_handlers.onY)
+    g_handlers.onY(toDown(tokY), SG90_180); 
   if (hasL && g_handlers.onL)
-    g_handlers.onL(toDown(tokL), MG996R); 
+    g_handlers.onL(toDown(tokL), MG996R_360); 
   if (hasR && g_handlers.onR)
-    g_handlers.onR(toDown(tokR), MG996R); 
+    g_handlers.onR(toDown(tokR), MG996R_360); 
 
+  // --- NEW: helper to clamp percentage string to [0..100] ---
+  auto toPercent = [](const String &t) -> int {
+    // NOTE: String::toInt() returns 0 if non-numeric; we clamp to [0..100]
+    long v = t.toInt();
+    if (v < 0)   v = 0;
+    if (v > 100) v = 100;
+    return (int)v;
+  };
+
+
+    // Update latest LT/RT percent if present (ไม่จำเป็นต้องเก็บ global ถ้าเรียก handler ทันที)
+  if (hasLT && g_handlers.onLT) {
+    int pct = toPercent(tokLT);                 // 0..100
+    g_handlers.onLT(pct, MG996R);             // เรียกใช้งานกับ SG90
+  }
+
+  if (hasRT && g_handlers.onRT) {
+    int pct = toPercent(tokRT);                 // 0..100
+    g_handlers.onRT(pct, MG996R);             // เรียกใช้งานกับ SG90
+  }
   // (จะพิมพ์ ACK ก็ได้)
   // Serial.printf("ACK %s\n", line.c_str());
   return true;
@@ -209,7 +232,7 @@ void onBtnA(bool down, UnifiedServo &servoType)//manual control ->
   {
     if (down)
     {
-      Serial.println("cam turns 1");
+      Serial.println(" turns 1");
       servoType.setSpeedPercent(+10);
     }
     else
@@ -227,7 +250,7 @@ void onBtnB(bool down, UnifiedServo &servoType)//manual control <-
   {
     if (down)
     {
-      Serial.println("cam turns 2");
+      Serial.println(" turns 2");
       servoType.setSpeedPercent(-10); // forward
     }
     else
@@ -237,47 +260,26 @@ void onBtnB(bool down, UnifiedServo &servoType)//manual control <-
     }
   }
 }
+
 void onBtnY(bool down, UnifiedServo &servoType)
 {
-  if (servoType.kind() == ServoKind::Positional180)
-  {
-    int count = 0;
-    if (down)
-    {
-      switch (count)
-      {
-      case 0:
-        Serial.println("To 45");
-        servoType.setAngleDeg(45);
-        count++;
-        break;
-      case 1:
-        Serial.println("To 90");
-        servoType.setAngleDeg(90);  
-        count++;
-        break;
-      case 2:
-        Serial.println("To 135");
-        servoType.setAngleDeg(135);
-        count++;
-        break;
-      case 3:
-        Serial.println("To 180");
-        servoType.setAngleDeg(180);
-        count = 0;
-        break;
-      default:
-        count = 0;
-        break;
-      }
-    }
-    else
-    {
-      // Serial.println("stop");
-      // servoType.goCenterOrStop(); // stop
-    }
+  if (servoType.kind() != ServoKind::Positional180) return;
+
+  // จำสถานะข้ามครั้งเรียก
+  static bool prev_down = false;
+  static int step = 0; // 0..3
+
+  // ทำงานเฉพาะตอน DOWN เปลี่ยนจาก false -> true
+  if (down && !prev_down) {
+    const int angles[5] = {0, 45, 90, 135, 180};
+    int deg = angles[step];
+    Serial.printf("Y → %d deg\n", deg);
+    servoType.setAngleDeg(deg);
+    step = (step + 1) % 5; // วน 45→90→135→180→45...
   }
+  prev_down = down;
 }
+
 
 void onBtnL(bool down, UnifiedServo &servoType)
 {
@@ -285,11 +287,12 @@ void onBtnL(bool down, UnifiedServo &servoType)
   {
     if (down)
     {
-      Serial.println("manual 1");
-      servoType.setSpeedPercent(20); 
+      Serial.println("cam 1");
+      servoType.setSpeedPercent(40); 
     }
     else
     {
+      servoType.goCenterOrStop(); // stop
       return;
     }
   }
@@ -301,14 +304,59 @@ void onBtnR(bool down, UnifiedServo &servoType)
   {
     if (down)
     {
-      Serial.println("manul 2");
-      servoType.setSpeedPercent(-20);
+      Serial.println("cam 2");
+      servoType.setSpeedPercent(-40);
     }
     else
     {
+      servoType.goCenterOrStop(); // stop
       return;
     }
   }
 }
 
+// NEW: LT/RT analog → SG90 angle with latching
+void onBtnLT(int percent, UnifiedServo& servo) {
+  if (servo.kind() != ServoKind::Positional180) return;
+
+  // clamp & snap edges
+  percent = constrain(percent, 0, 100);
+  if (percent >= kSnapHighPct) percent = 100;
+
+  // ignore tiny values (release/noise) -> keep last angle
+  if (percent <= kMinActivePct) {
+    // ไม่ทำอะไร: รักษามุมเดิมไว้
+    return;
+  }
+
+  // LT: 0..100 -> 0..180 deg
+  int deg = map(percent, 0, 100, 0, 180);
+  deg = constrain(deg, 0, 180);
+
+  g_active_side = ActiveSide::LT;
+  g_last_angle_deg = deg;
+  servo.setAngleDeg(deg);
+}
+
+void onBtnRT(int percent, UnifiedServo& servo) {
+  if (servo.kind() != ServoKind::Positional180) return;
+
+  // clamp & snap edges
+  percent = constrain(percent, 0, 100);
+  if (percent >= kSnapHighPct) percent = 100;
+
+  // ignore tiny values (release/noise) -> keep last angle
+  if (percent <= kMinActivePct) {
+    // ไม่ทำอะไร: รักษามุมเดิมไว้
+    return;
+  }
+
+  // RT: 0..100 -> 180..0 deg (กลับทิศ)
+  int deg = map(percent, 0, 100, 180, 0);
+  deg = constrain(deg, 0, 180);
+
+  g_active_side = ActiveSide::RT;
+  g_last_angle_deg = deg;
+  servo.setAngleDeg(deg);
+}
 
