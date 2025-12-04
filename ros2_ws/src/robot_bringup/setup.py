@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from glob import glob
 import os
 
@@ -7,7 +7,7 @@ package_name = 'robot_bringup'
 setup(
     name=package_name,
     version='0.1.0',
-    packages=[package_name],
+    packages=find_packages(),
     package_data={
         package_name: [
             'templates/*.html',
@@ -47,6 +47,8 @@ setup(
             'encode_bridge = robot_bringup.encode_bridge:main',
             'wheel_ticks_from_cmdvel= robot_bringup.wheel_ticks_from_cmdvel:main',
             'pid_check = robot_bringup.pid_check:main',
+            'camera_publisher = robot_bringup.robot_vision.camera_publisher:main',
+            'april_tag_reader = robot_bringup.robot_vision.april_tag_reader:main',
         ],
     },
     python_requires='>=3.10,<3.13',
